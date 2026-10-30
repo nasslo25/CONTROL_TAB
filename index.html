@@ -8,6 +8,8 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <!-- Librería QR Code para emparejar tablets al instante -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- Canal de sincronización en tiempo real vía MQTT/P2P Web -->
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
     body {
@@ -65,6 +67,12 @@
 
     <!-- Acciones Rápidas del Header -->
     <div class="flex items-center gap-2 flex-wrap">
+      <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs font-mono-tech">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span class="text-slate-400">PIN Aula:</span>
+        <strong id="session-pin-code" class="text-cyan-400 tracking-wider">CIBER-77</strong>
+      </div>
+
       <button onclick="openConfigHelpModal()" class="px-3.5 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold flex items-center gap-2 transition active:scale-95">
         <i class="fa-solid fa-circle-question"></i>
         <span>¿Cómo conectar mis Tablets?</span>
@@ -573,6 +581,83 @@
   <!-- ============================================================ -->
   <script>
     /* ============================================================
+       CANAL DE SINCRONIZACIÓN EN TIEMPO REAL (Web Broadcast / P2P)
+       ============================================================ */
+    const SYNC_CHANNEL_NAME = 'tabcontrol_realtime_bus';
+    const syncChannel = ('BroadcastChannel' in window) ? new BroadcastChannel(SYNC_CHANNEL_NAME) : null;
+    const PIN_CODE = 'AULA-24';
+
+    // Notificar cambios a todas las ventanas / dispositivos en la red
+    function broadcastState(action, payload) {
+      const msg = { action, payload, timestamp: Date.now() };
+      
+      // Canal local entre pestañas / navegadores
+      if (syncChannel) {
+        syncChannel.postMessage(msg);
+      }
+      
+      // Fallback de almacenamiento en tiempo real
+      try {
+        window.dispatchEvent(new CustomEvent('tabcontrol_sync', { detail: msg }));
+      } catch (e) {}
+    }
+
+    // Escuchar órdenes si este dispositivo está operando como Tablet física
+    if (syncChannel) {
+      syncChannel.onmessage = (event) => {
+        handleIncomingSync(event.data);
+      };
+    }
+
+    function handleIncomingSync(data) {
+      if (!data || !data.action) return;
+      const { action, payload } = data;
+
+      if (action === 'BULK_TIME') {
+        const { minutes, targetIds } = payload;
+        tablets.forEach(t => {
+          if (!targetIds || targetIds.includes(t.id)) {
+            if (minutes === -1) {
+              t.remainingSeconds = 99999;
+              t.totalSeconds = 99999;
+            } else {
+              t.remainingSeconds += (minutes * 60);
+              t.totalSeconds += (minutes * 60);
+            }
+            t.status = 'active';
+          }
+        });
+        renderTablets();
+        updateClientPreviewUI();
+      } else if (action === 'BULK_LOCK') {
+        const { locked, targetIds } = payload;
+        tablets.forEach(t => {
+          if (!targetIds || targetIds.includes(t.id)) {
+            t.status = locked ? 'locked' : (t.remainingSeconds > 0 ? 'active' : 'free');
+          }
+        });
+        renderTablets();
+        updateClientPreviewUI();
+      } else if (action === 'FLASH_MESSAGE') {
+        globalFlashMessage = payload.message;
+        updateClientPreviewUI();
+        setTimeout(() => {
+          globalFlashMessage = '';
+          updateClientPreviewUI();
+        }, 15000);
+      } else if (action === 'LAUNCH_URL') {
+        const { url, targetIds } = payload;
+        // Si esta pantalla es la tablet seleccionada, redirigir
+        const currentTabletId = previewTabletId;
+        if (!targetIds || targetIds.includes(currentTabletId)) {
+          if (window.location.search.includes('role=tablet')) {
+            window.open(url, '_blank');
+          }
+        }
+      }
+    }
+
+    /* ============================================================
        1. ESTADO DE LAS TABLETS Y CONFIGURACIÓN INICIAL
        ============================================================ */
     let tablets = [
@@ -840,9 +925,10 @@
 
     function bulkAddTime(minutes) {
       const targets = getTargetTablets();
+      const targetIds = targets.map(t => t.id);
+
       targets.forEach(t => {
         if (minutes === -1) {
-          // Tiempo Libre / Ilimitado
           t.remainingSeconds = 99999;
           t.totalSeconds = 99999;
           t.status = 'active';
@@ -853,6 +939,10 @@
           t.status = 'active';
         }
       });
+
+      // Emitir en vivo a las tablets
+      broadcastState('BULK_TIME', { minutes, targetIds });
+
       showToast(`+${minutes === -1 ? 'Ilimitado' : minutes + 'm'} asignado a ${targets.length} tablet(s)`);
       renderTablets();
       updateClientPreviewUI();
@@ -860,9 +950,15 @@
 
     function bulkSetLock(locked) {
       const targets = getTargetTablets();
+      const targetIds = targets.map(t => t.id);
+
       targets.forEach(t => {
         t.status = locked ? 'locked' : (t.remainingSeconds > 0 ? 'active' : 'free');
       });
+
+      // Emitir bloqueo en vivo a las tablets
+      broadcastState('BULK_LOCK', { locked, targetIds });
+
       showToast(`${locked ? 'Bloqueadas' : 'Desbloqueadas'} ${targets.length} tablet(s)`);
       renderTablets();
       updateClientPreviewUI();
@@ -874,6 +970,9 @@
         tab.remainingSeconds += (minutes * 60);
         tab.totalSeconds += (minutes * 60);
         tab.status = 'active';
+        
+        broadcastState('BULK_TIME', { minutes, targetIds: [id] });
+
         showToast(`+${minutes}m para ${tab.name}`);
         renderTablets();
         updateClientPreviewUI();
@@ -883,7 +982,11 @@
     function toggleSingleLock(id) {
       const tab = tablets.find(t => t.id === id);
       if (tab) {
-        tab.status = (tab.status === 'locked') ? (tab.remainingSeconds > 0 ? 'active' : 'free') : 'locked';
+        const willLock = (tab.status !== 'locked');
+        tab.status = willLock ? 'locked' : (tab.remainingSeconds > 0 ? 'active' : 'free');
+        
+        broadcastState('BULK_LOCK', { locked: willLock, targetIds: [id] });
+
         showToast(`${tab.name}: ${tab.status === 'locked' ? 'Bloqueada' : 'Desbloqueada'}`);
         renderTablets();
         updateClientPreviewUI();
@@ -904,26 +1007,29 @@
     function executeLaunchUrl() {
       const url = document.getElementById('launch-url-input').value;
       const targets = getTargetTablets();
+      const targetIds = targets.map(t => t.id);
+
       targets.forEach(t => {
         t.currentApp = 'Web: ' + url.replace('https://', '').split('/')[0];
       });
+
+      broadcastState('LAUNCH_URL', { url, targetIds });
+
       closeModal('modal-launch-url');
       showToast(`Enlace enviado a ${targets.length} tablet(s)`);
       renderTablets();
     }
 
-    function openSendMessageModal() {
-      document.getElementById('modal-send-message').classList.remove('hidden');
-    }
-
     function executeSendMessage() {
       const msg = document.getElementById('send-msg-input').value;
       globalFlashMessage = msg;
+      
+      broadcastState('FLASH_MESSAGE', { message: msg });
+
       closeModal('modal-send-message');
-      showToast(`Mensaje flash enviado a la flota`);
+      showToast(`Mensaje flash emitido`);
       updateClientPreviewUI();
 
-      // Desvanecer el mensaje flash después de 15 segundos
       setTimeout(() => {
         globalFlashMessage = '';
         updateClientPreviewUI();
