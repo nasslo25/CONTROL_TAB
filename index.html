@@ -3,12 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TabControl Pro - Gestor Central de Tablets y Ciber</title>
+  <title>TabControl Pro - Gestor Central de Tablets (Estilo Veyon)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- Librería QR Code para emparejar tablets al instante -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <!-- Canal de sincronización en tiempo real vía MQTT/P2P Web -->
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
@@ -19,16 +17,6 @@
     .font-mono-tech {
       font-family: 'JetBrains Mono', monospace;
     }
-    /* Animación de pulso para tablets activas */
-    @keyframes pulse-ring {
-      0% { transform: scale(0.95); opacity: 0.8; }
-      50% { transform: scale(1.1); opacity: 0.3; }
-      100% { transform: scale(0.95); opacity: 0.8; }
-    }
-    .status-ping {
-      animation: pulse-ring 2s infinite ease-in-out;
-    }
-    /* Estilos para el visor de pantalla en vivo */
     .screen-video-container {
       background: #020617;
       position: relative;
@@ -41,7 +29,6 @@
       height: 100%;
       object-fit: contain;
     }
-    /* Scrollbar personalizada */
     ::-webkit-scrollbar {
       width: 6px;
       height: 6px;
@@ -57,9 +44,7 @@
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-cyan-500 selection:text-white">
 
-  <!-- ============================================================ -->
-  <!-- BARRA SUPERIOR / HEADER PRINCIPAL                          -->
-  <!-- ============================================================ -->
+  <!-- BARRA SUPERIOR -->
   <header class="bg-slate-900/95 border-b border-slate-800 px-4 lg:px-8 py-3 sticky top-0 z-40 backdrop-blur flex flex-wrap items-center justify-between gap-3 shadow-xl">
     <div class="flex items-center gap-3">
       <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/25">
@@ -71,10 +56,10 @@
             TabControl<span class="text-cyan-400">Pro</span>
           </h1>
           <span class="px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-700/50 text-[10px] font-mono-tech uppercase font-bold tracking-wider">
-            Consola PC
+            Consola Veyon Web
           </span>
         </div>
-        <p class="text-[11px] text-slate-400 hidden sm:block">Control Centralizado de Dispositivos por Lote</p>
+        <p class="text-[11px] text-slate-400 hidden sm:block">Control Centralizado y Supervisión de Pantallas en Vivo</p>
       </div>
     </div>
 
@@ -83,34 +68,31 @@
       <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs font-mono-tech">
         <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
         <span class="text-slate-400">PIN Aula:</span>
-        <strong id="session-pin-code" class="text-cyan-400 tracking-wider">CIBER-77</strong>
+        <strong id="session-pin-code" class="text-cyan-400 tracking-wider">AULA77</strong>
       </div>
 
       <button onclick="openConfigHelpModal()" class="px-3.5 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold flex items-center gap-2 transition active:scale-95">
         <i class="fa-solid fa-circle-question"></i>
-        <span>¿Cómo conectar mis Tablets?</span>
+        <span>¿Cómo conectar?</span>
       </button>
 
-      <button onclick="openBulkImportModal()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-2 transition active:scale-95">
-        <i class="fa-solid fa-file-import text-cyan-400"></i>
-        <span>Importar Lote por Correo</span>
+      <button onclick="openPairModalNew()" class="px-3.5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs flex items-center gap-1.5 transition active:scale-95 shadow-md">
+        <i class="fa-solid fa-qrcode"></i>
+        <span>Vincular Tablet (QR)</span>
       </button>
 
       <button onclick="openTabletPreview()" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-indigo-600/30 transition active:scale-95">
         <i class="fa-solid fa-mobile-screen"></i>
-        <span>Simular Tablet</span>
+        <span>Probar Modo Tablet</span>
       </button>
     </div>
   </header>
 
-  <!-- ============================================================ -->
-  <!-- CONTENEDOR PRINCIPAL                                         -->
-  <!-- ============================================================ -->
+  <!-- CONTENEDOR PRINCIPAL -->
   <main class="flex-1 max-w-[1700px] w-full mx-auto p-3 sm:p-5 lg:p-6 flex flex-col gap-5">
 
-    <!-- Fila 1: Métricas de Flota en Vivo -->
+    <!-- Métricas en vivo -->
     <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-      <!-- Total Tablets -->
       <div class="bg-slate-900 border border-slate-800 p-3.5 sm:p-4 rounded-2xl flex items-center justify-between shadow-lg">
         <div>
           <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-0.5">Tablets Conectadas</span>
@@ -121,7 +103,6 @@
         </div>
       </div>
 
-      <!-- En Uso -->
       <div class="bg-slate-900 border border-slate-800 p-3.5 sm:p-4 rounded-2xl flex items-center justify-between shadow-lg">
         <div>
           <span class="text-[11px] font-semibold text-emerald-400 uppercase tracking-wider block mb-0.5">Transmitiendo en Vivo</span>
@@ -132,7 +113,6 @@
         </div>
       </div>
 
-      <!-- Libres -->
       <div class="bg-slate-900 border border-slate-800 p-3.5 sm:p-4 rounded-2xl flex items-center justify-between shadow-lg">
         <div>
           <span class="text-[11px] font-semibold text-cyan-400 uppercase tracking-wider block mb-0.5">En Espera</span>
@@ -143,7 +123,6 @@
         </div>
       </div>
 
-      <!-- Bloqueadas / Vencidas -->
       <div class="bg-slate-900 border border-slate-800 p-3.5 sm:p-4 rounded-2xl flex items-center justify-between shadow-lg">
         <div>
           <span class="text-[11px] font-semibold text-rose-400 uppercase tracking-wider block mb-0.5">Bloqueadas</span>
@@ -154,7 +133,6 @@
         </div>
       </div>
 
-      <!-- Tiempo Promedio -->
       <div class="col-span-2 sm:col-span-1 bg-slate-900 border border-slate-800 p-3.5 sm:p-4 rounded-2xl flex items-center justify-between shadow-lg">
         <div>
           <span class="text-[11px] font-semibold text-amber-400 uppercase tracking-wider block mb-0.5">Tiempo Promedio</span>
@@ -166,23 +144,19 @@
       </div>
     </div>
 
-    <!-- Fila 2: Barra de Control Masivo (Bulk Actions) -->
+    <!-- Barra de Control Masivo -->
     <div class="bg-gradient-to-r from-slate-900 via-slate-900/90 to-slate-900 border border-cyan-900/40 p-4 rounded-2xl shadow-xl flex flex-wrap items-center justify-between gap-3">
-      
-      <!-- Selección y Contadores -->
       <div class="flex items-center gap-3">
         <label class="flex items-center gap-2 cursor-pointer bg-slate-950/80 px-3 py-2 rounded-xl border border-slate-800 text-xs font-semibold text-slate-300 hover:text-white">
           <input type="checkbox" id="select-all-check" onchange="toggleSelectAll(this.checked)" class="w-4 h-4 rounded bg-slate-800 border-slate-700 text-cyan-500 focus:ring-0">
           <span>Seleccionar Todas</span>
         </label>
         <span class="text-xs text-slate-400 font-mono-tech">
-          Seleccionadas: <strong id="selected-count" class="text-cyan-400">0</strong> / <span id="total-badge-count">8</span>
+          Seleccionadas: <strong id="selected-count" class="text-cyan-400">0</strong> / <span id="total-badge-count">0</span>
         </span>
       </div>
 
-      <!-- Acciones en Lote (Tiempo, Bloqueos, Enlaces, Alertas) -->
       <div class="flex items-center gap-2 flex-wrap">
-        <!-- Agregar tiempo masivo -->
         <div class="flex items-center bg-slate-950/90 border border-slate-800 rounded-xl p-1 text-xs">
           <span class="px-2 text-slate-400 font-medium">Asignar:</span>
           <button onclick="bulkAddTime(15)" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold transition active:scale-95">+15m</button>
@@ -191,7 +165,6 @@
           <button onclick="bulkAddTime(-1)" class="px-2.5 py-1 rounded-lg bg-cyan-950 text-cyan-300 font-bold ml-1 border border-cyan-700/40 hover:bg-cyan-900 transition active:scale-95">Libre</button>
         </div>
 
-        <!-- Bloquear / Desbloquear Todo -->
         <button onclick="bulkSetLock(true)" class="px-3 py-2 rounded-xl bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-700/50 text-xs font-bold flex items-center gap-1.5 transition active:scale-95">
           <i class="fa-solid fa-lock"></i>
           <span>Bloquear Todas</span>
@@ -202,71 +175,61 @@
           <span>Desbloquear</span>
         </button>
 
-        <!-- Lanzar Web Masiva -->
         <button onclick="openLaunchUrlModal()" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95">
           <i class="fa-solid fa-arrow-up-right-from-square text-cyan-400"></i>
           <span>Lanzar Web</span>
         </button>
 
-        <!-- Enviar Mensaje Flash Masivo -->
         <button onclick="openSendMessageModal()" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95">
           <i class="fa-solid fa-bullhorn text-amber-400"></i>
           <span>Mensaje Flash</span>
         </button>
       </div>
-
     </div>
 
-    <!-- Fila 3: Filtros de Búsqueda y Organización -->
+    <!-- Filtros de búsqueda -->
     <div class="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
       <div class="flex items-center gap-2 w-full sm:w-auto">
         <div class="relative flex-1 sm:w-72">
           <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"></i>
-          <input type="text" id="search-filter" oninput="applyFilters()" placeholder="Buscar por tablet, usuario o correo..." class="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500">
+          <input type="text" id="search-filter" oninput="applyFilters()" placeholder="Buscar por nombre o correo..." class="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500">
         </div>
 
         <select id="status-filter" onchange="applyFilters()" class="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-cyan-500">
           <option value="all">Todos los estados</option>
           <option value="active">En Uso</option>
           <option value="free">Libres</option>
-          <option value="locked">Bloqueadas / Vencidas</option>
+          <option value="locked">Bloqueadas</option>
         </select>
       </div>
 
       <div class="flex items-center gap-2 self-end sm:self-auto">
-        <button onclick="openPairModalNew()" class="px-3 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs flex items-center gap-1.5 transition active:scale-95 shadow-md">
-          <i class="fa-solid fa-qrcode"></i>
-          <span>Vincular Nueva Tablet (QR)</span>
+        <button onclick="toggleGridDensity()" id="grid-toggle-btn" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-table-cells"></i>
+          <span>Mosaico Compacto</span>
         </button>
-      <button onclick="toggleGridDensity()" id="grid-toggle-btn" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs flex items-center gap-1.5 transition">
-        <i class="fa-solid fa-table-cells"></i>
-        <span>Modo Mosaico Veyon</span>
-      </button>
+      </div>
     </div>
-  </div>
 
-  <!-- Fila 4: Cuadrícula de Terminales / Tablets de la Flota (Mosaico de Pantallas) -->
-  <div id="tablets-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-    <!-- Inyectadas por JavaScript -->
-  </div>
+    <!-- Cuadrícula Veyon (Mosaico de Pantallas) -->
+    <div id="tablets-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      <!-- Se inyecta dinámicamente -->
+    </div>
 
-</main>
+  </main>
 
-  <!-- ============================================================ -->
-  <!-- MODAL: VISOR DE PANTALLA EN VIVO AMPLIADO (ESTILO VEYON)      -->
-  <!-- ============================================================ -->
+  <!-- MODAL: VISOR DE PANTALLA AMPLIADO -->
   <div id="modal-screen-inspect" class="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-3 hidden">
     <div class="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-6xl max-h-[96vh] flex flex-col overflow-hidden shadow-2xl">
-      <!-- Barra superior del visor -->
       <div class="bg-slate-950 px-5 py-3 border-b border-slate-800 flex items-center justify-between">
         <div class="flex items-center gap-3">
           <span class="w-3 h-3 rounded-full bg-emerald-400 animate-pulse"></span>
           <div>
             <h3 class="font-extrabold text-sm sm:text-base text-white flex items-center gap-2">
-              <span id="inspect-tablet-name">Tablet #01</span>
+              <span id="inspect-tablet-name">Tablet</span>
               <span id="inspect-tablet-badge" class="px-2 py-0.5 rounded text-[10px] font-mono-tech bg-emerald-950 text-emerald-300 border border-emerald-700">EN VIVO</span>
             </h3>
-            <p class="text-[11px] text-slate-400 font-mono-tech" id="inspect-tablet-email">alumno01@colegio.edu</p>
+            <p class="text-[11px] text-slate-400 font-mono-tech" id="inspect-tablet-email"></p>
           </div>
         </div>
         <div class="flex items-center gap-2">
@@ -278,7 +241,6 @@
           </button>
         </div>
       </div>
-      <!-- Contenedor del video ampliado -->
       <div class="flex-1 bg-black flex items-center justify-center relative overflow-hidden min-h-[420px]">
         <video id="inspect-video-player" autoplay playsinline class="w-full h-full object-contain max-h-[78vh]"></video>
         <div id="inspect-no-video" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500 gap-3">
@@ -289,71 +251,55 @@
     </div>
   </div>
 
-  <!-- ============================================================ -->
-  <!-- VISTA CLIENTE: MODO TABLET EN PANTALLA COMPLETA              -->
-  <!-- ============================================================ -->
+  <!-- VISTA CLIENTE TABLET (PANTALLA COMPLETA) -->
   <div id="tablet-fullscreen-mode" class="fixed inset-0 bg-slate-950 z-[100] flex flex-col p-4 sm:p-6 hidden">
-    <!-- Header de la tablet física -->
     <div class="flex items-center justify-between pb-3 border-b border-slate-800 text-xs font-mono-tech">
       <div class="flex items-center gap-2">
         <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
-        <span id="tab-fs-name" class="font-bold text-white text-sm">Tablet Conectada</span>
+        <span id="tab-fs-name" class="font-bold text-white text-sm">Tablet</span>
       </div>
       <div class="flex items-center gap-3 text-slate-400">
-        <span id="tab-fs-email" class="text-cyan-400">ciber@aula.edu</span>
+        <span id="tab-fs-network-status" class="flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-amber-400"></span> Conectando...
+        </span>
         <span id="tab-fs-battery"><i class="fa-solid fa-battery-full text-emerald-400"></i> 100%</span>
       </div>
     </div>
 
-    <!-- Contenido de transmisión y estado -->
     <div class="flex-1 flex flex-col items-center justify-center text-center max-w-lg mx-auto w-full">
       <div id="tab-fs-unlocked-card" class="w-full">
         <div class="w-16 h-16 rounded-3xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center text-2xl mx-auto mb-3 shadow-xl">
-          <i class="fa-solid fa-laptop-code"></i>
+          <i class="fa-solid fa-display"></i>
         </div>
-        <h2 class="text-lg sm:text-xl font-black text-white">Dispositivo Conectado al PC</h2>
-        <p class="text-xs text-slate-400 mt-1 mb-3">La pantalla y actividad de esta tablet se transmiten al profesor en tiempo real.</p>
+        <h2 class="text-lg sm:text-xl font-black text-white">Transmisión de Pantalla</h2>
+        <p class="text-xs text-slate-400 mt-1 mb-4">Pulsa el botón para compartir la pantalla de esta tablet con el PC del profesor.</p>
 
-        <!-- Botones de Transmisión -->
-        <div class="mb-4 flex flex-col sm:flex-row gap-2 justify-center">
-          <button id="btn-start-stream" onclick="requestScreenShare()" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-cyan-600/30 flex items-center justify-center gap-1.5 transition active:scale-95">
-            <i class="fa-solid fa-display"></i>
-            <span id="stream-btn-label">Transmitir Pantalla / Cámara</span>
-          </button>
-          <button id="btn-start-desk-stream" onclick="startVirtualDesktopStream()" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 font-bold text-xs border border-cyan-500/30 flex items-center justify-center gap-1.5 transition active:scale-95">
-            <i class="fa-solid fa-chalkboard"></i>
-            <span>Pizarra / Cuaderno en Vivo</span>
-          </button>
-        </div>
+        <button id="btn-start-stream" onclick="requestScreenShare()" class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-bold text-sm shadow-lg shadow-cyan-600/30 flex items-center justify-center gap-2 transition active:scale-95 mb-4">
+          <i class="fa-solid fa-desktop"></i>
+          <span id="stream-btn-label">Compartir Pantalla Completa</span>
+        </button>
 
-        <!-- Área de Trabajo Interactiva de la Tablet (Pizarra / Navegador del Alumno) -->
-        <div id="tablet-interactive-workspace" class="bg-slate-900 border border-slate-800 rounded-2xl p-3 mb-4 text-left">
-          <div class="flex items-center justify-between text-[11px] font-semibold text-slate-400 mb-2 border-b border-slate-800 pb-1.5">
-            <span><i class="fa-solid fa-pen text-cyan-400 mr-1"></i> Pizarra / Apuntes (Lo que dibujes se ve en el PC)</span>
-            <button onclick="clearTabletCanvas()" class="text-rose-400 hover:text-rose-300 text-[10px]">Borrar</button>
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-3 text-left">
+          <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+            <span>Tiempo restante de sesión:</span>
+            <span id="tab-fs-time" class="font-mono-tech text-lg font-bold text-cyan-400">30:00</span>
           </div>
-          <canvas id="tablet-draw-canvas" class="w-full h-36 bg-slate-950 rounded-xl border border-slate-800 cursor-crosshair touch-none"></canvas>
-        </div>
-
-        <!-- Tiempo de sesión -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 mb-2 flex items-center justify-between px-4">
-          <span class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Tiempo Restante:</span>
-          <div id="tab-fs-time" class="text-2xl font-black font-mono-tech text-cyan-300">30:00</div>
+          <p class="text-[11px] text-slate-500">Puedes minimizar esta pestaña y trabajar con normalidad; la pantalla seguirá transmitiendo.</p>
         </div>
       </div>
 
-      <!-- Pantalla de bloqueo si el PC la bloquea -->
+      <!-- Pantalla de Bloqueo -->
       <div id="tab-fs-locked-card" class="hidden w-full text-center">
         <div class="w-20 h-20 rounded-3xl bg-rose-500/20 border-2 border-rose-500 text-rose-400 flex items-center justify-center text-3xl mx-auto mb-4 animate-bounce">
           <i class="fa-solid fa-lock"></i>
         </div>
-        <h2 class="text-2xl font-black text-rose-300">Tablet Bloqueada por el Profesor</h2>
+        <h2 class="text-2xl font-black text-rose-300">Tablet Bloqueada</h2>
         <p class="text-xs text-slate-300 mt-2 mb-4 leading-relaxed">
-          Atiende las instrucciones del profesor en la pizarra o solicita tiempo adicional en el panel central.
+          El profesor ha pausado las actividades en este equipo. Por favor, atiende las instrucciones en la sala.
         </p>
       </div>
 
-      <!-- Aviso Flash Flotante -->
+      <!-- Alerta Flash -->
       <div id="tab-fs-flash" class="hidden mt-4 p-3.5 rounded-2xl bg-amber-500/20 border border-amber-500 text-amber-200 text-xs font-semibold animate-pulse">
         <i class="fa-solid fa-bullhorn mr-2"></i>
         <span id="tab-fs-flash-text"></span>
@@ -361,110 +307,7 @@
     </div>
   </div>
 
-  <!-- ============================================================ -->
-  <!-- MODAL: SIMULADOR / PANTALLA CLIENTE DE LA TABLET            -->
-  <!-- ============================================================ -->
-  <div id="modal-tablet-client" class="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4 hidden">
-    <!-- Marco de la Tablet -->
-    <div class="bg-slate-900 border-4 sm:border-8 border-slate-800 rounded-[2.5rem] w-full max-w-4xl h-[92vh] sm:h-[84vh] p-2 sm:p-4 shadow-2xl relative flex flex-col justify-between overflow-hidden">
-      
-      <!-- Cámara frontal simulada -->
-      <div class="absolute top-2 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-slate-950 border border-slate-700 z-30"></div>
-
-      <!-- Pantalla Interna de la Tablet -->
-      <div id="tablet-screen-inner" class="relative w-full h-full bg-slate-950 rounded-2xl sm:rounded-3xl border border-slate-800 overflow-hidden flex flex-col justify-between p-4 sm:p-6 transition-all duration-300">
-        
-        <!-- Barra de Estado Superior de la Tablet -->
-        <div class="flex items-center justify-between text-xs text-slate-400 font-mono-tech border-b border-slate-900 pb-2">
-          <div class="flex items-center gap-2">
-            <i class="fa-solid fa-wifi text-cyan-400"></i>
-            <span id="client-device-name">Tablet #01</span>
-          </div>
-          <div class="flex items-center gap-3">
-            <span id="client-clock">12:00</span>
-            <div class="flex items-center gap-1">
-              <span id="client-battery-pct">88%</span>
-              <i class="fa-solid fa-battery-three-quarters text-emerald-400"></i>
-            </div>
-          </div>
-        </div>
-
-        <!-- Contenido Central de la Tablet -->
-        <div class="flex-1 flex flex-col items-center justify-center text-center my-auto py-4">
-          
-          <!-- Estado Normal / Desbloqueada -->
-          <div id="client-normal-view" class="w-full max-w-md">
-            <div class="w-20 h-20 rounded-3xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center text-3xl mx-auto mb-4 shadow-xl">
-              <i class="fa-solid fa-chalkboard-user"></i>
-            </div>
-            
-            <h2 class="text-xl sm:text-2xl font-black text-white" id="client-user-title">Sesión Alumno / Cliente</h2>
-            <p class="text-xs text-slate-400 mt-1 mb-5" id="client-user-email">alumno01@colegio.edu</p>
-
-            <!-- Reloj Regresivo en Grande de la Tablet -->
-            <div class="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 mb-5 shadow-2xl">
-              <span class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold block mb-1">Tiempo de Turno Restante</span>
-              <div class="text-4xl sm:text-5xl font-black font-mono-tech text-cyan-300" id="client-countdown">30:00</div>
-              <div class="w-full bg-slate-800 h-2 rounded-full mt-3 overflow-hidden">
-                <div id="client-time-bar" class="bg-cyan-500 h-full rounded-full transition-all duration-1000" style="width: 100%;"></div>
-              </div>
-            </div>
-
-            <!-- Apps permitidas / Accesos rápidos -->
-            <div class="grid grid-cols-4 gap-2 text-center text-xs">
-              <div class="p-2.5 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col items-center gap-1 cursor-pointer hover:border-cyan-500/50 transition">
-                <i class="fa-solid fa-book-open text-cyan-400 text-lg"></i>
-                <span class="text-[10px] text-slate-300">Libros</span>
-              </div>
-              <div class="p-2.5 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col items-center gap-1 cursor-pointer hover:border-indigo-500/50 transition">
-                <i class="fa-solid fa-graduation-cap text-indigo-400 text-lg"></i>
-                <span class="text-[10px] text-slate-300">Clase</span>
-              </div>
-              <div class="p-2.5 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col items-center gap-1 cursor-pointer hover:border-amber-500/50 transition">
-                <i class="fa-solid fa-pen-nib text-amber-400 text-lg"></i>
-                <span class="text-[10px] text-slate-300">Examen</span>
-              </div>
-              <div class="p-2.5 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col items-center gap-1 cursor-pointer hover:border-emerald-500/50 transition">
-                <i class="fa-solid fa-calculator text-emerald-400 text-lg"></i>
-                <span class="text-[10px] text-slate-300">Cálculo</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- PANTALLA DE BLOQUEO / TIEMPO AGOTADO -->
-          <div id="client-lock-overlay" class="w-full max-w-md hidden text-center">
-            <div class="w-20 h-20 rounded-3xl bg-rose-500/20 border-2 border-rose-500 text-rose-400 flex items-center justify-center text-3xl mx-auto mb-4 animate-bounce">
-              <i class="fa-solid fa-lock"></i>
-            </div>
-            <h2 class="text-2xl font-black text-rose-300">Terminal Bloqueada</h2>
-            <p class="text-sm text-slate-300 mt-2 mb-4 leading-relaxed" id="client-lock-msg">
-              El tiempo asignado a esta tablet se ha agotado o el administrador ha pausado las actividades.
-            </p>
-            <div class="p-3 bg-slate-900 rounded-2xl border border-slate-800 text-xs text-slate-400">
-              Por favor, comunícate con el encargado del ciber / profesor para solicitar tiempo adicional.
-            </div>
-          </div>
-
-          <!-- MENSAJE FLASH FLOTANTE EN LA TABLET -->
-          <div id="client-flash-banner" class="hidden mt-4 p-4 rounded-2xl bg-amber-500/20 border border-amber-500/60 text-amber-200 text-xs sm:text-sm font-semibold max-w-md w-full animate-pulse">
-            <i class="fa-solid fa-bullhorn mr-2"></i>
-            <span id="client-flash-text">¡Atención! Faltan 5 minutos para finalizar la clase.</span>
-          </div>
-
-        </div>
-
-        <!-- Botón Salir de Vista Previa -->
-        <button onclick="closeModal('modal-tablet-client')" class="absolute bottom-3 right-3 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-bold border border-slate-700 transition">
-          Cerrar Vista Previa
-        </button>
-
-      </div>
-    </div>
-  </div>
-
-  <!-- ============================================================ -->
-  <!-- MODAL: CÓDIGO QR Y ENLACE DE VINCULACIÓN DE TABLET FÍSICA     -->
-  <!-- ============================================================ -->
+  <!-- MODAL: CÓDIGO QR PARA VINCULAR TABLET -->
   <div id="modal-pair-tablet" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-slate-900 border border-slate-700 rounded-3xl max-w-md w-full p-6 shadow-2xl relative text-center">
       <button onclick="closeModal('modal-pair-tablet')" class="absolute top-4 right-4 text-slate-400 hover:text-white p-2">
@@ -474,24 +317,23 @@
       <div class="w-12 h-12 rounded-2xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-2xl mx-auto mb-3">
         <i class="fa-solid fa-qrcode"></i>
       </div>
-      <h3 class="text-base font-bold text-white mb-0.5" id="pair-tablet-title">Conectar Tablet #01</h3>
-      <p class="text-xs text-slate-400 mb-4" id="pair-tablet-email">tablet01@colegio.edu</p>
+      <h3 class="text-base font-bold text-white mb-0.5" id="pair-tablet-title">Vincular Tablet</h3>
+      <p class="text-xs text-slate-400 mb-4" id="pair-tablet-email"></p>
 
-      <!-- Contenedor QR -->
       <div class="bg-white p-3 rounded-2xl inline-block shadow-xl mb-4 border-4 border-slate-800">
         <div id="pair-qrcode-box" class="w-[180px] h-[180px] flex items-center justify-center"></div>
       </div>
 
-      <div class="space-y-2 text-left bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-xs">
-        <strong class="text-slate-200 block">Instrucciones rápidas en la tablet:</strong>
+      <div class="text-left bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-xs mb-3">
+        <strong class="text-slate-200 block mb-1">En la Tablet física:</strong>
         <ol class="list-decimal pl-4 space-y-1 text-slate-400 text-[11px]">
-          <li>Abre la cámara o el navegador Chrome en la tablet física.</li>
-          <li>Escanea el código QR de arriba o copia el enlace directo.</li>
-          <li>La tablet quedará vinculada automáticamente a este PC.</li>
+          <li>Abre la cámara o Chrome en la tablet.</li>
+          <li>Escanea el código QR o copia el enlace inferior.</li>
+          <li>Pulsa "Compartir Pantalla Completa".</li>
         </ol>
       </div>
 
-      <div class="mt-4 flex gap-2">
+      <div class="flex gap-2">
         <input type="text" id="pair-link-input" readonly class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-[11px] font-mono-tech text-cyan-300 focus:outline-none">
         <button onclick="copyPairLink()" class="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs flex items-center gap-1.5 transition">
           <i class="fa-solid fa-copy"></i>
@@ -501,9 +343,37 @@
     </div>
   </div>
 
-  <!-- ============================================================ -->
-  <!-- MODAL: GUÍA PASO A PASO (PC Y TABLET)                       -->
-  <!-- ============================================================ -->
+  <!-- MODAL: RENOMBRAR TABLET -->
+  <div id="modal-rename-tablet" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-700 rounded-3xl max-w-sm w-full p-6 shadow-2xl relative">
+      <button onclick="closeModal('modal-rename-tablet')" class="absolute top-4 right-4 text-slate-400 hover:text-white p-2">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xl">
+          <i class="fa-solid fa-pen-to-square"></i>
+        </div>
+        <div>
+          <h3 class="text-base font-bold text-white">Renombrar Tablet</h3>
+          <p class="text-xs text-slate-400">Asigna un nombre al alumno o puesto</p>
+        </div>
+      </div>
+
+      <input type="hidden" id="rename-target-id">
+      <div class="mb-4">
+        <label class="block text-xs font-semibold text-slate-300 mb-1">Nuevo Nombre:</label>
+        <input type="text" id="rename-input" placeholder="Ej: Juan Pérez - Mesa 04" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500">
+      </div>
+
+      <div class="flex gap-2 justify-end">
+        <button onclick="closeModal('modal-rename-tablet')" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold">Cancelar</button>
+        <button onclick="saveTabletRename()" class="px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs transition">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: GUÍA DE CONFIGURACIÓN -->
   <div id="modal-config-help" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-slate-900 border border-slate-700 rounded-3xl max-w-xl w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
       <button onclick="closeModal('modal-config-help')" class="absolute top-4 right-4 text-slate-400 hover:text-white p-2">
@@ -515,118 +385,35 @@
           <i class="fa-solid fa-network-wired"></i>
         </div>
         <div>
-          <h3 class="text-base font-bold text-white">¿Cómo se conecta en tu PC y en tus Tablets?</h3>
-          <p class="text-xs text-slate-400">Puesta en marcha paso a paso</p>
+          <h3 class="text-base font-bold text-white">¿Cómo funciona la supervisión Veyon?</h3>
+          <p class="text-xs text-slate-400">Guía de puesta en marcha</p>
         </div>
       </div>
 
-      <div class="space-y-4 text-xs text-slate-300 leading-relaxed">
-        <!-- Paso 1 -->
-        <div class="p-3.5 bg-slate-950 rounded-2xl border border-slate-800">
-          <div class="flex items-center gap-2 text-cyan-400 font-bold mb-1">
-            <span class="w-5 h-5 rounded-full bg-cyan-500/20 flex items-center justify-center text-[11px]">1</span>
-            <span>En tu Computadora (PC Administrador)</span>
-          </div>
-          <p class="text-slate-400 text-[11px]">
-            Abres esta página en Chrome o Edge. Tendrás la vista de todas tus tablets, el reloj de cada una, podrás seleccionar todas y dar "+30m", "Bloquear Todas" o lanzarles páginas web masivamente.
-          </p>
+      <div class="space-y-3 text-xs text-slate-300">
+        <div class="p-3 bg-slate-950 rounded-2xl border border-slate-800">
+          <strong class="text-cyan-400 block mb-1">1. En tu Computadora (PC Maestro)</strong>
+          <p class="text-slate-400 text-[11px]">Mantén esta ventana abierta. Cada tablet que escanee su QR aparecerá automáticamente en pantalla en vivo.</p>
         </div>
-
-        <!-- Paso 2 -->
-        <div class="p-3.5 bg-slate-950 rounded-2xl border border-slate-800">
-          <div class="flex items-center gap-2 text-emerald-400 font-bold mb-1">
-            <span class="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center text-[11px]">2</span>
-            <span>En cada Tablet Física (Alumnos / Clientes)</span>
-          </div>
-          <p class="text-slate-400 text-[11px]">
-            Haces clic en el botón con el ícono de <strong class="text-white"><i class="fa-solid fa-qrcode"></i> QR</strong> en la tarjeta de esa tablet. Escaneas el QR con la tablet física o abres el enlace generado.
-          </p>
+        <div class="p-3 bg-slate-950 rounded-2xl border border-slate-800">
+          <strong class="text-emerald-400 block mb-1">2. En la Tablet física</strong>
+          <p class="text-slate-400 text-[11px]">Escanea el código QR de esa tablet. Al pulsar "Compartir Pantalla", el navegador de la tablet pedirá confirmar. Acepta y su pantalla aparecerá en tu PC.</p>
         </div>
-
-        <!-- Paso 3 -->
-        <div class="p-3.5 bg-slate-950 rounded-2xl border border-slate-800">
-          <div class="flex items-center gap-2 text-purple-400 font-bold mb-1">
-            <span class="w-5 h-5 rounded-full bg-purple-500/20 flex items-center justify-center text-[11px]">3</span>
-            <span>Fijar en Pantalla Completa (Modo Kiosco / Ciber)</span>
-          </div>
-          <p class="text-slate-400 text-[11px]">
-            En la tablet, abre los 3 puntos de Chrome y selecciona <strong>"Agregar a la pantalla de inicio"</strong> o <strong>"Instalar App"</strong>. La web se abrirá sin barra de navegación, a pantalla completa fija.
-          </p>
-        </div>
-
-        <!-- Paso 4 -->
-        <div class="p-3.5 bg-slate-950 rounded-2xl border border-slate-800">
-          <div class="flex items-center gap-2 text-amber-400 font-bold mb-1">
-            <span class="w-5 h-5 rounded-full bg-amber-500/20 flex items-center justify-center text-[11px]">4</span>
-            <span>Gestión por Cuentas de Correo</span>
-          </div>
-          <p class="text-slate-400 text-[11px]">
-            Al importar la lista de correos de Google Classroom o del colegio, cada tablet queda etiquetada con su usuario. No necesitas configuraciones de red complejas ni cables.
-          </p>
+        <div class="p-3 bg-slate-950 rounded-2xl border border-slate-800">
+          <strong class="text-purple-400 block mb-1">3. Supervisión Continua</strong>
+          <p class="text-slate-400 text-[11px]">El alumno puede cambiar de app o navegar; la pantalla seguirá transmitiéndose al mosaico de tu PC en tiempo real.</p>
         </div>
       </div>
 
       <div class="mt-5 flex justify-end">
         <button onclick="closeModal('modal-config-help')" class="px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs transition">
-          ¡Entendido!
+          Entendido
         </button>
       </div>
     </div>
   </div>
 
-  <!-- ============================================================ -->
-  <!-- MODAL: IMPORTADOR MASIVO POR CORREO O SECUENCIA              -->
-  <!-- ============================================================ -->
-  <div id="modal-bulk-import" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-slate-900 border border-slate-700 rounded-3xl max-w-lg w-full p-6 shadow-2xl relative">
-      <button onclick="closeModal('modal-bulk-import')" class="absolute top-4 right-4 text-slate-400 hover:text-white p-2">
-        <i class="fa-solid fa-xmark text-lg"></i>
-      </button>
-
-      <div class="flex items-center gap-3 mb-4">
-        <div class="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xl">
-          <i class="fa-solid fa-file-import"></i>
-        </div>
-        <div>
-          <h3 class="text-base font-bold text-white">Importar Lote de Dispositivos</h3>
-          <p class="text-xs text-slate-400">Pega una lista de correos de alumnos o cuentas</p>
-        </div>
-      </div>
-
-      <div class="space-y-3">
-        <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1">Pega los correos (uno por línea o separados por coma):</label>
-          <textarea id="bulk-emails-input" rows="5" placeholder="alumno01@colegio.edu&#10;alumno02@colegio.edu&#10;alumno03@colegio.edu" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white font-mono-tech placeholder-slate-600 focus:outline-none focus:border-cyan-500"></textarea>
-        </div>
-
-        <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 text-xs text-slate-400">
-          <span class="text-slate-300 font-semibold block mb-0.5">¿O prefieres generar secuencialmente?</span>
-          <div class="flex items-center gap-2 mt-2">
-            <span class="text-[11px]">Crear</span>
-            <input type="number" id="quick-gen-count" value="10" min="1" max="50" class="w-16 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-center text-white font-mono-tech">
-            <span class="text-[11px]">tablets con correo:</span>
-            <input type="text" id="quick-gen-domain" value="aula@centro.edu" class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-[11px] text-white font-mono-tech">
-          </div>
-          <button onclick="generateSequentialTablets()" class="mt-2.5 w-full py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-400 text-xs font-bold border border-slate-700 transition">
-            Generar Dispositivos Secuenciales
-          </button>
-        </div>
-      </div>
-
-      <div class="mt-5 flex gap-2 justify-end">
-        <button onclick="closeModal('modal-bulk-import')" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold">
-          Cancelar
-        </button>
-        <button onclick="processBulkEmails()" class="px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs transition">
-          Importar Correos
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ============================================================ -->
-  <!-- MODAL: LANZAR WEB MASIVA                                    -->
-  <!-- ============================================================ -->
+  <!-- MODAL: LANZAR WEB -->
   <div id="modal-launch-url" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-slate-900 border border-slate-700 rounded-3xl max-w-md w-full p-6 shadow-2xl relative">
       <button onclick="closeModal('modal-launch-url')" class="absolute top-4 right-4 text-slate-400 hover:text-white p-2">
@@ -639,16 +426,12 @@
         </div>
         <div>
           <h3 class="text-base font-bold text-white">Lanzar Enlace en las Tablets</h3>
-          <p class="text-xs text-slate-400">Abrir una URL simultáneamente en los equipos seleccionados</p>
+          <p class="text-xs text-slate-400">Abrir una URL simultáneamente en los equipos</p>
         </div>
       </div>
 
       <div class="space-y-3">
-        <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1">Enlace / URL destino:</label>
-          <input type="url" id="launch-url-input" value="https://classroom.google.com" placeholder="https://..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono-tech focus:outline-none focus:border-cyan-500">
-        </div>
-
+        <input type="url" id="launch-url-input" value="https://classroom.google.com" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono-tech focus:outline-none focus:border-cyan-500">
         <div class="grid grid-cols-3 gap-1.5 text-xs">
           <button onclick="setUrlShortcut('https://classroom.google.com')" class="p-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 hover:border-slate-700 text-center">Classroom</button>
           <button onclick="setUrlShortcut('https://kahoot.it')" class="p-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 hover:border-slate-700 text-center">Kahoot</button>
@@ -663,9 +446,7 @@
     </div>
   </div>
 
-  <!-- ============================================================ -->
-  <!-- MODAL: MENSAJE FLASH MASIVO                                 -->
-  <!-- ============================================================ -->
+  <!-- MODAL: MENSAJE FLASH -->
   <div id="modal-send-message" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-slate-900 border border-slate-700 rounded-3xl max-w-md w-full p-6 shadow-2xl relative">
       <button onclick="closeModal('modal-send-message')" class="absolute top-4 right-4 text-slate-400 hover:text-white p-2">
@@ -678,56 +459,46 @@
         </div>
         <div>
           <h3 class="text-base font-bold text-white">Emitir Mensaje Flash</h3>
-          <p class="text-xs text-slate-400">Aparecerá en grande en las pantallas de las tablets</p>
+          <p class="text-xs text-slate-400">Aparecerá en pantalla en todas las tablets</p>
         </div>
       </div>
 
-      <div class="space-y-3">
-        <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1">Escribe el aviso:</label>
-          <input type="text" id="send-msg-input" value="¡Atención! Quedan 5 minutos de tiempo de sesión." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500">
-        </div>
-      </div>
+      <input type="text" id="send-msg-input" value="¡Atención! Quedan 5 minutos de tiempo de sesión." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500">
 
       <div class="mt-5 flex gap-2 justify-end">
         <button onclick="closeModal('modal-send-message')" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold">Cancelar</button>
-        <button onclick="executeSendMessage()" class="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs transition">Emitir Mensaje</button>
+        <button onclick="executeSendMessage()" class="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs transition">Emitir</button>
       </div>
     </div>
   </div>
 
-  <!-- Notificación Toast Flotante -->
+  <!-- TOAST DE NOTIFICACIÓN -->
   <div id="toast" class="fixed bottom-5 right-5 bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-2xl shadow-2xl text-xs z-50 flex items-center gap-2 transform translate-y-24 opacity-0 transition-all duration-300 pointer-events-none">
     <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400 text-sm"></i>
-    <span id="toast-text">Acción realizada correctamente</span>
+    <span id="toast-text">Acción realizada</span>
   </div>
 
-  <!-- ============================================================ -->
-  <!-- LÓGICA JAVASCRIPT COMPLETA                                   -->
-  <!-- ============================================================ -->
+  <!-- LÓGICA JAVASCRIPT COMPLETA -->
   <script>
-    /* ============================================================
-       ARQUITECTURA WEBRTC / P2P ESTILO VEYON ROBUSTA
-       ============================================================ */
     const SYNC_CHANNEL_NAME = 'tabcontrol_realtime_bus';
     const syncChannel = ('BroadcastChannel' in window) ? new BroadcastChannel(SYNC_CHANNEL_NAME) : null;
-    
-    // Almacén de streams WebRTC de video por cada tablet
-    const remoteVideoStreams = {}; // { tabletId: MediaStream }
-    const tabletDataConnections = {}; // { tabletId: DataConnection }
-    let hostDataConnection = null; // Conexión de datos en el cliente hacia el host
+
+    let tablets = [];
+    const remoteVideoStreams = {};
+    const tabletDataConnections = {};
+    let hostDataConnection = null;
     let myLocalStream = null;
     let peerInstance = null;
     let myPeerId = null;
     let isVeyonDenseGrid = false;
     let currentInspectId = null;
+    let globalFlashMessage = '';
+    let previewTabletId = 1;
 
-    // PIN fijo para emparejar la sesión
     const ROOM_PREFIX = 'VEYON_TAB_ROOM_';
     const currentRoomPin = 'AULA77';
     const hostPeerId = `${ROOM_PREFIX}${currentRoomPin}_HOST_PC`;
 
-    /* Inicializar PeerJS con soporte P2P nube global */
     function initPeerNetwork(isTablet = false, tabletId = null) {
       const customId = isTablet 
         ? `${ROOM_PREFIX}${currentRoomPin}_DEV_${tabletId}_${Math.floor(Math.random() * 8999 + 1000)}`
@@ -738,21 +509,15 @@
           try { peerInstance.destroy(); } catch (e) {}
         }
 
-        // Conectar al broker público gratuito de PeerJS
-        peerInstance = new Peer(customId, {
-          debug: 1
-        });
+        peerInstance = new Peer(customId, { debug: 1 });
 
         peerInstance.on('open', (id) => {
           myPeerId = id;
-          console.log('[PeerJS Listo]', id);
-
           if (isTablet) {
             connectTabletToHost(tabletId);
           }
         });
 
-        // Modo Host (PC): Recibir conexiones de datos de tablets reales
         if (!isTablet) {
           peerInstance.on('connection', (conn) => {
             conn.on('open', () => {
@@ -762,9 +527,8 @@
             });
           });
 
-          // Modo Host: Recibir streaming de video
           peerInstance.on('call', (call) => {
-            call.answer(); // Aceptar llamada de video entrante
+            call.answer();
             call.on('stream', (remoteStream) => {
               const matchedId = call.metadata?.tabletId || parseTabletIdFromPeer(call.peer);
               if (matchedId) {
@@ -773,13 +537,6 @@
             });
           });
         }
-
-        peerInstance.on('error', (err) => {
-          console.warn('[PeerJS]', err);
-          if (err.type === 'unavailable-id' && !isTablet) {
-            showToast('Aviso: Hay otra consola PC abierta con este mismo PIN');
-          }
-        });
       } catch (e) {
         console.warn('Error inicializando PeerJS:', e);
       }
@@ -795,7 +552,6 @@
       return null;
     }
 
-    /* En la Tablet: Conectar por canal de datos directo al Host PC */
     function connectTabletToHost(tabletId) {
       const conn = peerInstance.connect(hostPeerId, {
         reliable: true,
@@ -805,34 +561,23 @@
       hostDataConnection = conn;
 
       conn.on('open', () => {
-        console.log('[Tablet -> PC Conectado]');
         const statusEl = document.getElementById('tab-fs-network-status');
         if (statusEl) {
           statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Conectada al PC';
         }
 
-        // Registrar tablet con sus datos reales
         const params = new URLSearchParams(window.location.search);
         const email = params.get('email') || `tablet${tabletId}@aula.edu`;
         const name = `Tablet #${String(tabletId).padStart(2, '0')}`;
 
         conn.send({
           type: 'TABLET_HELLO',
-          payload: {
-            id: tabletId,
-            name: name,
-            email: email,
-            battery: 100
-          }
+          payload: { id: tabletId, name: name, email: email, battery: 100 }
         });
 
-        // Enviar latido cada 3 segundos
         setInterval(() => {
           if (conn.open) {
-            conn.send({
-              type: 'TABLET_HEARTBEAT',
-              payload: { id: tabletId }
-            });
+            conn.send({ type: 'TABLET_HEARTBEAT', payload: { id: tabletId } });
           }
         }, 3000);
       });
@@ -850,7 +595,6 @@
       });
     }
 
-    /* En el PC: Procesar datos enviados directamente por las tablets */
     function handleTabletIncomingMessage(data, conn) {
       if (!data || !data.type) return;
 
@@ -869,7 +613,6 @@
             totalSeconds: 1800,
             battery: p.battery || 100,
             selected: false,
-            currentApp: 'Conectada (En Vivo)',
             streaming: false,
             lastSeen: Date.now()
           };
@@ -879,20 +622,17 @@
           tab.lastSeen = Date.now();
         }
 
-        showToast(`¡${tab.name} conectada exitosamente!`);
+        showToast(`${tab.name} conectada`);
         renderTablets();
       } else if (data.type === 'TABLET_HEARTBEAT') {
         const tab = tablets.find(t => t.id === data.payload.id);
-        if (tab) {
-          tab.lastSeen = Date.now();
-        }
+        if (tab) tab.lastSeen = Date.now();
       }
     }
 
-    /* Asignar el video recibido de una tablet a su tarjeta en la pantalla */
     function attachRemoteStream(tabletId, stream) {
       remoteVideoStreams[tabletId] = stream;
-      
+
       let tab = tablets.find(t => t.id === tabletId);
       if (!tab) {
         tab = {
@@ -904,7 +644,6 @@
           totalSeconds: 1800,
           battery: 100,
           selected: false,
-          currentApp: 'Transmitiendo Pantalla',
           streaming: true,
           lastSeen: Date.now()
         };
@@ -916,7 +655,6 @@
 
       renderTablets();
 
-      // Conectar al elemento video de la tarjeta
       setTimeout(() => {
         const cardVideo = document.getElementById(`screen-video-${tabletId}`);
         if (cardVideo) {
@@ -937,202 +675,18 @@
         }
       }, 50);
 
-      showToast(`¡Video recibido de Tablet #${tabletId}!`);
+      showToast(`Transmitiendo en vivo: Tablet #${tabletId}`);
     }
 
-    /* Recibir fotograma continuo por canal de datos si falla WebRTC tradicional */
-    function handleFrameFromTablet(tabletId, dataUrl) {
-      let tab = tablets.find(t => t.id === tabletId);
-      if (!tab) return;
-      tab.streaming = true;
-      tab.status = 'active';
-
-      let canvasEl = document.getElementById(`screen-canvas-mirror-${tabletId}`);
-      const placeholder = document.getElementById(`screen-placeholder-${tabletId}`);
-      const videoEl = document.getElementById(`screen-video-${tabletId}`);
-
-      if (videoEl) videoEl.classList.add('hidden');
-      if (placeholder) placeholder.classList.add('hidden');
-
-      if (!canvasEl) {
-        const container = document.querySelector(`[onclick="inspectTabletScreen(${tabletId})"]`);
-        if (container) {
-          canvasEl = document.createElement('canvas');
-          canvasEl.id = `screen-canvas-mirror-${tabletId}`;
-          canvasEl.className = 'w-full h-full object-contain';
-          container.appendChild(canvasEl);
-        }
-      }
-
-      if (canvasEl) {
-        const ctx = canvasEl.getContext('2d');
-        const img = new Image();
-        img.onload = () => {
-          canvasEl.width = img.width;
-          canvasEl.height = img.height;
-          ctx.drawImage(img, 0, 0);
-        };
-        img.src = dataUrl;
-      }
-    }
-
-    /* En el PC: Procesar datos enviados directamente por las tablets */
-    function handleTabletIncomingMessage(data, conn) {
-      if (!data || !data.type) return;
-
-      if (data.type === 'TABLET_FRAME') {
-        handleFrameFromTablet(data.payload.id, data.payload.image);
-        return;
-      }
-
-      if (data.type === 'TABLET_HELLO') {
-        const p = data.payload;
-        tabletDataConnections[p.id] = conn;
-
-        let tab = tablets.find(t => t.id === p.id);
-        if (!tab) {
-          tab = {
-            id: p.id,
-            name: p.name || `Tablet #${String(p.id).padStart(2, '0')}`,
-            email: p.email || `tablet${p.id}@aula.edu`,
-            status: 'active',
-            remainingSeconds: 1800,
-            totalSeconds: 1800,
-            battery: p.battery || 100,
-            selected: false,
-            currentApp: 'Conectada (En Vivo)',
-            streaming: false,
-            lastSeen: Date.now()
-          };
-          tablets.push(tab);
-        } else {
-          tab.status = 'active';
-          tab.lastSeen = Date.now();
-        }
-
-        showToast(`¡${tab.name} conectada exitosamente!`);
-        renderTablets();
-      } else if (data.type === 'TABLET_HEARTBEAT') {
-        const tab = tablets.find(t => t.id === data.payload.id);
-        if (tab) {
-          tab.lastSeen = Date.now();
-        }
-      }
-    }
-
-    /* Pizarra interactiva del alumno con transmisión automática hacia el PC */
-    let drawInterval = null;
-    function initTabletDrawingBoard() {
-      const cv = document.getElementById('tablet-draw-canvas');
-      if (!cv) return;
-      const ctx = cv.getContext('2d');
-      cv.width = cv.clientWidth || 340;
-      cv.height = 144;
-
-      // Fondo inicial
-      ctx.fillStyle = '#020617';
-      ctx.fillRect(0, 0, cv.width, cv.height);
-      ctx.fillStyle = '#64748b';
-      ctx.font = '12px Inter';
-      ctx.fillText('Escribe o dibuja aquí para que aparezca en el PC', 15, 25);
-
-      let drawing = false;
-
-      function getPos(e) {
-        const r = cv.getBoundingClientRect();
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        return { x: clientX - r.left, y: clientY - r.top };
-      }
-
-      function startDraw(e) {
-        drawing = true;
-        const pos = getPos(e);
-        ctx.beginPath();
-        ctx.moveTo(pos.x, pos.y);
-      }
-
-      function draw(e) {
-        if (!drawing) return;
-        const pos = getPos(e);
-        ctx.strokeStyle = '#38bdf8';
-        ctx.lineWidth = 3;
-        ctx.lineCap = 'round';
-        ctx.lineTo(pos.x, pos.y);
-        ctx.stroke();
-      }
-
-      function stopDraw() {
-        drawing = false;
-      }
-
-      cv.addEventListener('mousedown', startDraw);
-      cv.addEventListener('mousemove', draw);
-      window.addEventListener('mouseup', stopDraw);
-
-      cv.addEventListener('touchstart', (e) => { e.preventDefault(); startDraw(e); }, { passive: false });
-      cv.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e); }, { passive: false });
-      cv.addEventListener('touchend', stopDraw);
-
-      // Iniciar stream de fotogramas del lienzo hacia el PC cada 200ms
-      startVirtualDesktopStream();
-    }
-
-    function clearTabletCanvas() {
-      const cv = document.getElementById('tablet-draw-canvas');
-      if (!cv) return;
-      const ctx = cv.getContext('2d');
-      ctx.fillStyle = '#020617';
-      ctx.fillRect(0, 0, cv.width, cv.height);
-    }
-
-    /* Transmisión de lienzo/escritorio hacia el PC vía canal de datos rápido */
-    function startVirtualDesktopStream() {
-      const cv = document.getElementById('tablet-draw-canvas');
-      if (!cv) return;
-
-      if (drawInterval) clearInterval(drawInterval);
-
-      drawInterval = setInterval(() => {
-        if (hostDataConnection && hostDataConnection.open) {
-          try {
-            const dataUrl = cv.toDataURL('image/jpeg', 0.5);
-            hostDataConnection.send({
-              type: 'TABLET_FRAME',
-              payload: {
-                id: previewTabletId,
-                image: dataUrl
-              }
-            });
-          } catch (e) {}
-        }
-      }, 200);
-
-      showToast('Transmitiendo lienzo en tiempo real al PC');
-    }
-
-    /* Solicitar compartir pantalla o cámara en la tablet física */
     async function requestScreenShare() {
       const label = document.getElementById('stream-btn-label');
       const btn = document.getElementById('btn-start-stream');
 
       try {
         let stream = null;
-
         if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
-          try {
-            stream = await navigator.mediaDevices.getDisplayMedia({
-              video: { frameRate: 15 },
-              audio: false
-            });
-          } catch (e) {
-            console.log('No se pudo capturar pantalla en tablet, usando cámara...', e);
-          }
-        }
-
-        if (!stream && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-          stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'user', width: 640, height: 480 },
+          stream = await navigator.mediaDevices.getDisplayMedia({
+            video: { frameRate: 15, displaySurface: 'monitor' },
             audio: false
           });
         }
@@ -1148,65 +702,28 @@
             });
           }
 
-          // Si es cámara o pantalla, además transmitir fotogramas por si el PC no abre el WebRTC directo
-          const track = stream.getVideoTracks()[0];
-          const trackCapture = new ImageCapture(track);
-          setInterval(async () => {
-            if (hostDataConnection && hostDataConnection.open && track.readyState === 'live') {
-              try {
-                const bitmap = await trackCapture.grabFrame();
-                const offscreen = document.createElement('canvas');
-                offscreen.width = 320;
-                offscreen.height = 200;
-                const octx = offscreen.getContext('2d');
-                octx.drawImage(bitmap, 0, 0, 320, 200);
-                hostDataConnection.send({
-                  type: 'TABLET_FRAME',
-                  payload: {
-                    id: previewTabletId,
-                    image: offscreen.toDataURL('image/jpeg', 0.4)
-                  }
-                });
-              } catch (e) {}
-            }
-          }, 300);
-
-          showToast('Transmisión de video iniciada');
-        } else {
-          // Si el navegador denegó permisos, recurrir al lienzo virtual
-          startVirtualDesktopStream();
+          showToast('Pantalla compartida con el profesor');
         }
       } catch (err) {
-        console.warn('Permiso no concedido para video directo, usando pizarra espejo:', err);
-        startVirtualDesktopStream();
+        console.warn('Permiso cancelado para compartir pantalla:', err);
       }
     }
 
-    // Notificar cambios por P2P a las tablets reales y pestañas locales
     function broadcastState(action, payload) {
       const msg = { action, payload, timestamp: Date.now() };
-      
-      // 1. Enviar a través de las conexiones de datos PeerJS a las tablets físicas
+
       Object.keys(tabletDataConnections).forEach(tabId => {
         const conn = tabletDataConnections[tabId];
         if (conn && conn.open) {
-          try {
-            conn.send(msg);
-          } catch (e) {}
+          try { conn.send(msg); } catch (e) {}
         }
       });
 
-      // 2. Enviar por BroadcastChannel para pruebas locales
       if (syncChannel) {
         syncChannel.postMessage(msg);
       }
-      
-      try {
-        window.dispatchEvent(new CustomEvent('tabcontrol_sync', { detail: msg }));
-      } catch (e) {}
     }
 
-    // Escuchar órdenes si este dispositivo está operando como Tablet física
     if (syncChannel) {
       syncChannel.onmessage = (event) => {
         handleIncomingSync(event.data);
@@ -1232,7 +749,6 @@
           }
         });
         renderTablets();
-        updateClientPreviewUI();
         updateTabletFullscreenUI();
       } else if (action === 'BULK_LOCK') {
         const { locked, targetIds } = payload;
@@ -1242,187 +758,35 @@
           }
         });
         renderTablets();
-        updateClientPreviewUI();
         updateTabletFullscreenUI();
       } else if (action === 'FLASH_MESSAGE') {
         globalFlashMessage = payload.message;
-        updateClientPreviewUI();
         updateTabletFullscreenUI();
         setTimeout(() => {
           globalFlashMessage = '';
-          updateClientPreviewUI();
           updateTabletFullscreenUI();
         }, 15000);
       } else if (action === 'LAUNCH_URL') {
         const { url, targetIds } = payload;
-        const currentTabId = previewTabletId;
-        if (!targetIds || targetIds.includes(currentTabId)) {
+        if (!targetIds || targetIds.includes(previewTabletId)) {
           if (window.location.search.includes('role=tablet')) {
             window.open(url, '_blank');
           }
         }
-      }
-    }
-
-    /* ============================================================
-       1. ESTADO DE LAS TABLETS Y CONFIGURACIÓN INICIAL
-       ============================================================ */
-    // Comienza en 0: solo aparecerán tablets cuando se conecten de verdad
-    let tablets = [];
-
-    let currentFilter = 'all';
-    let globalFlashMessage = '';
-    let previewTabletId = 1;
-    let qrCodeInstance = null;
-
-    /* Abrir QR para vincular una nueva tablet física */
-    function openPairModalNew() {
-      const nextId = tablets.length > 0 ? Math.max(...tablets.map(t => t.id)) + 1 : 1;
-      const tabNum = String(nextId).padStart(2, '0');
-      openPairModal(nextId, `Tablet #${tabNum}`, `tablet${tabNum}@aula.edu`);
-    }
-
-    /* Alternar entre vista de tarjetas estándar y Mosaico de Pantallas Veyon */
-    function toggleGridDensity() {
-      isVeyonDenseGrid = !isVeyonDenseGrid;
-      const grid = document.getElementById('tablets-grid');
-      const btn = document.getElementById('grid-toggle-btn');
-      if (isVeyonDenseGrid) {
-        grid.className = 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3';
-        btn.classList.add('bg-cyan-600', 'text-white');
-      } else {
-        grid.className = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4';
-        btn.classList.remove('bg-cyan-600', 'text-white');
-      }
-      renderTablets();
-    }
-
-    /* ============================================================
-       VINCULACIÓN POR QR / ENLACE DIRECTO
-       ============================================================ */
-    function openConfigHelpModal() {
-      document.getElementById('modal-config-help').classList.remove('hidden');
-    }
-
-    function openPairModal(id, customName = null, customEmail = null) {
-      const tab = tablets.find(t => t.id === id);
-      const name = customName || (tab ? tab.name : `Tablet #${String(id).padStart(2, '0')}`);
-      const email = customEmail || (tab ? tab.email : `tablet${id}@aula.edu`);
-
-      document.getElementById('pair-tablet-title').textContent = `Conectar ${name}`;
-      document.getElementById('pair-tablet-email').textContent = email;
-
-      // Generar URL con parámetros de tablet
-      const currentUrl = window.location.href.split('?')[0];
-      const targetUrl = `${currentUrl}?role=tablet&id=${id}&email=${encodeURIComponent(email)}`;
-      document.getElementById('pair-link-input').value = targetUrl;
-
-      // Generar código QR
-      const qrBox = document.getElementById('pair-qrcode-box');
-      qrBox.innerHTML = '';
-      if (typeof QRCode !== 'undefined') {
-        try {
-          qrCodeInstance = new QRCode(qrBox, {
-            text: targetUrl,
-            width: 170,
-            height: 170,
-            colorDark: "#0f172a",
-            colorLight: "#ffffff",
-            correctLevel: QRCode.CorrectLevel.M
-          });
-        } catch (e) {
-          qrBox.innerHTML = '<span class="text-xs text-slate-800">QR no disponible</span>';
+      } else if (action === 'RENAME_TABLET') {
+        const { id, name } = payload;
+        const tab = tablets.find(t => t.id === id);
+        if (tab) {
+          tab.name = name;
+          renderTablets();
         }
-      } else {
-        qrBox.innerHTML = '<span class="text-xs text-slate-800">Cargando QR...</span>';
-      }
-
-      document.getElementById('modal-pair-tablet').classList.remove('hidden');
-    }
-
-    function copyPairLink() {
-      const input = document.getElementById('pair-link-input');
-      copyToClipboard(input.value);
-    }
-
-    /* ============================================================
-       DETECCIÓN AUTOMÁTICA DE MODO TABLET REAL AL ESCANEAR EL QR
-       ============================================================ */
-    function checkDeviceRole() {
-      const params = new URLSearchParams(window.location.search);
-      const role = params.get('role');
-      const tabletId = parseInt(params.get('id'));
-
-      if (role === 'tablet' && tabletId) {
-        // Esconder el panel de PC y mostrar la pantalla de la tablet en modo completo
-        document.body.classList.add('overflow-hidden');
-        document.querySelector('header').classList.add('hidden');
-        document.querySelector('main').classList.add('hidden');
-        
-        const fsMode = document.getElementById('tablet-fullscreen-mode');
-        fsMode.classList.remove('hidden');
-
-        previewTabletId = tabletId;
-        const tab = tablets.find(t => t.id === tabletId) || { name: `Tablet #${tabletId}`, email: `tablet${tabletId}@centro.edu` };
-        document.getElementById('tab-fs-name').textContent = tab.name;
-        document.getElementById('tab-fs-email').textContent = tab.email;
-
-        // Iniciar PeerJS como cliente transmisor
-        initPeerNetwork(true, tabletId);
-
-        // Actualizar estado e inicializar pizarra del alumno
-        updateTabletFullscreenUI();
-        setTimeout(initTabletDrawingBoard, 150);
-
-        // Leer nivel de batería del dispositivo real
-        if ('getBattery' in navigator) {
-          navigator.getBattery().then(bat => {
-            const updateBat = () => {
-              const pct = Math.round(bat.level * 100);
-              const el = document.getElementById('tab-fs-battery');
-              if (el) el.innerHTML = `<i class="fa-solid fa-battery-half text-emerald-400"></i> ${pct}%`;
-            };
-            updateBat();
-            bat.addEventListener('levelchange', updateBat);
-          }).catch(() => {});
+        if (previewTabletId === id) {
+          const el = document.getElementById('tab-fs-name');
+          if (el) el.textContent = name;
         }
-      } else {
-        // Es la computadora de control central (Host PC)
-        initPeerNetwork(false);
       }
     }
 
-    function updateTabletFullscreenUI() {
-      const tab = tablets.find(t => t.id === previewTabletId);
-      if (!tab) return;
-
-      const timeEl = document.getElementById('tab-fs-time');
-      const unlockedCard = document.getElementById('tab-fs-unlocked-card');
-      const lockedCard = document.getElementById('tab-fs-locked-card');
-      const flashBox = document.getElementById('tab-fs-flash');
-      const flashText = document.getElementById('tab-fs-flash-text');
-
-      if (timeEl) timeEl.textContent = formatTime(tab.remainingSeconds);
-
-      if (tab.status === 'locked' || (tab.status === 'free' && tab.remainingSeconds <= 0)) {
-        unlockedCard.classList.add('hidden');
-        lockedCard.classList.remove('hidden');
-      } else {
-        unlockedCard.classList.remove('hidden');
-        lockedCard.classList.add('hidden');
-      }
-
-      if (globalFlashMessage) {
-        flashText.textContent = globalFlashMessage;
-        flashBox.classList.remove('hidden');
-      } else {
-        flashBox.classList.add('hidden');
-      }
-    }
-
-    /* ============================================================
-       2. RENDERIZADO DEL DASHBOARD DE TABLETS (CON PANTALLA EN VIVO)
-       ============================================================ */
     function renderTablets() {
       const grid = document.getElementById('tablets-grid');
       if (!grid) return;
@@ -1456,10 +820,9 @@
       } else {
         filtered.forEach(tab => {
           const card = document.createElement('div');
-          
           let borderClass = 'border-slate-800';
           let statusBadge = '';
-          
+
           if (tab.status === 'active') {
             borderClass = 'border-emerald-600/40 hover:border-emerald-500';
             statusBadge = `<span class="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800 text-[10px] font-bold uppercase flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> EN USO</span>`;
@@ -1477,30 +840,25 @@
           card.className = `bg-slate-900 border ${borderClass} rounded-2xl p-3.5 shadow-xl transition-all duration-200 flex flex-col justify-between gap-2.5 relative ${tab.selected ? 'ring-2 ring-cyan-500 bg-cyan-950/20' : ''}`;
 
           card.innerHTML = `
-            <!-- Encabezado de la Tarjeta -->
             <div class="flex items-start justify-between gap-2">
               <div class="flex items-center gap-2">
                 <input type="checkbox" ${tab.selected ? 'checked' : ''} onchange="toggleSelectTablet(${tab.id}, this.checked)" class="w-4 h-4 rounded bg-slate-800 border-slate-700 text-cyan-500 focus:ring-0 cursor-pointer">
                 <div>
                   <h3 class="font-bold text-xs sm:text-sm text-white flex items-center gap-1.5">
-                    ${tab.name}
+                    <span class="cursor-pointer hover:text-cyan-400 transition" onclick="openRenameModal(${tab.id})" title="Clic para renombrar">${tab.name}</span>
+                    <button onclick="openRenameModal(${tab.id})" class="text-slate-500 hover:text-cyan-400 text-xs" title="Editar nombre">
+                      <i class="fa-solid fa-pen-to-square"></i>
+                    </button>
                     ${hasStream ? '<span class="w-2 h-2 rounded-full bg-rose-500 animate-ping" title="Transmitiendo en Vivo"></span>' : ''}
                   </h3>
-                  <p class="text-[10px] text-slate-400 truncate max-w-[130px] font-mono-tech" title="${tab.email}">
-                    ${tab.email}
-                  </p>
+                  <p class="text-[10px] text-slate-400 truncate max-w-[130px] font-mono-tech" title="${tab.email}">${tab.email}</p>
                 </div>
               </div>
               <div>${statusBadge}</div>
             </div>
 
-            <!-- VISOR DE PANTALLA EN VIVO ESTILO VEYON -->
-            <div class="screen-video-container border border-slate-800 shadow-inner group cursor-pointer" onclick="inspectTabletScreen(${tab.id})" title="Clic para ampliar y supervisar en pantalla completa">
-              
-              <!-- Video de transmisión real si está conectada -->
+            <div class="screen-video-container border border-slate-800 shadow-inner group cursor-pointer" onclick="inspectTabletScreen(${tab.id})" title="Clic para supervisar">
               <video id="screen-video-${tab.id}" autoplay playsinline class="${hasStream ? '' : 'hidden'} w-full h-full object-contain"></video>
-
-              <!-- Placeholder / Simulación si aún no comparte pantalla -->
               <div id="screen-placeholder-${tab.id}" class="${hasStream ? 'hidden' : 'flex'} w-full h-full flex-col items-center justify-center p-3 text-center bg-slate-950/90 text-slate-500">
                 <div class="w-8 h-8 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 mb-1.5 group-hover:scale-110 transition-transform">
                   <i class="fa-solid fa-display text-sm"></i>
@@ -1508,21 +866,16 @@
                 <span class="text-[10px] text-slate-400 font-medium">Sin transmisión activa</span>
                 <span class="text-[9px] text-cyan-400 mt-0.5 underline">Escanear QR para transmitir</span>
               </div>
-
-              <!-- Overlay flotante al pasar el mouse -->
               <div class="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                 <span class="px-2.5 py-1 rounded-lg bg-cyan-600 text-white font-bold text-[10px] shadow-lg flex items-center gap-1">
                   <i class="fa-solid fa-expand"></i> Supervisar en Vivo
                 </span>
               </div>
-
-              <!-- Indicador de señal en la esquina del video -->
               <div class="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/70 text-[9px] font-mono-tech text-slate-300">
                 ${hasStream ? '<span class="text-emerald-400 font-bold">● VEYON LIVE</span>' : 'ESPERANDO QR'}
               </div>
             </div>
 
-            <!-- Bloque de Temporizador y Estado -->
             <div class="bg-slate-950/80 rounded-xl px-2.5 py-2 border border-slate-800/80 flex items-center justify-between text-xs">
               <span class="text-slate-400 text-[10px]">Tiempo:</span>
               <span class="font-mono-tech font-bold text-xs ${tab.remainingSeconds <= 300 && tab.status === 'active' ? 'text-rose-400 animate-pulse' : 'text-cyan-300'}">
@@ -1533,11 +886,8 @@
               </span>
             </div>
 
-            <!-- Botonera de Control Individual Rápido -->
             <div class="grid grid-cols-4 gap-1 pt-1.5 border-t border-slate-800/80">
-              <button onclick="quickAddTime(${tab.id}, 15)" title="+15 Minutos" class="py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-semibold transition active:scale-95">
-                +15m
-              </button>
+              <button onclick="quickAddTime(${tab.id}, 15)" title="+15 Minutos" class="py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-semibold transition active:scale-95">+15m</button>
               <button onclick="toggleSingleLock(${tab.id})" title="${tab.status === 'locked' ? 'Desbloquear' : 'Bloquear'}" class="py-1 rounded-lg ${tab.status === 'locked' ? 'bg-emerald-950 text-emerald-400 border border-emerald-600/40 hover:bg-emerald-900' : 'bg-rose-950/60 text-rose-300 border border-rose-600/30 hover:bg-rose-900'} text-[11px] font-semibold transition active:scale-95">
                 <i class="fa-solid ${tab.status === 'locked' ? 'fa-lock-open' : 'fa-lock'}"></i>
               </button>
@@ -1551,7 +901,6 @@
           `;
           grid.appendChild(card);
 
-          // Re-enganchar stream si ya existía para que no se apague al re-renderizar
           if (remoteVideoStreams[tab.id]) {
             const v = card.querySelector(`#screen-video-${tab.id}`);
             if (v) v.srcObject = remoteVideoStreams[tab.id];
@@ -1563,7 +912,6 @@
       updateSelectedCounter();
     }
 
-    /* Actualizar estadísticas superiores de la flota */
     function updateStatistics() {
       const statTotal = document.getElementById('stat-total');
       const statActive = document.getElementById('stat-active');
@@ -1594,7 +942,6 @@
       }
     }
 
-    /* Actualizar contador de selección múltiple */
     function updateSelectedCounter() {
       const selectedCountEl = document.getElementById('selected-count');
       const selectAllCheck = document.getElementById('select-all-check');
@@ -1608,13 +955,11 @@
       }
     }
 
-    /* Seleccionar / deseleccionar todas las tablets */
     function toggleSelectAll(checked) {
       tablets.forEach(t => t.selected = checked);
       renderTablets();
     }
 
-    /* Inspección ampliada estilo Veyon */
     function inspectTabletScreen(id) {
       currentInspectId = id;
       const tab = tablets.find(t => t.id === id);
@@ -1657,7 +1002,29 @@
       }
     }
 
-    /* Desconectar y remover tablet de la cuadrícula */
+    function openRenameModal(id) {
+      const tab = tablets.find(t => t.id === id);
+      if (!tab) return;
+      document.getElementById('rename-target-id').value = id;
+      document.getElementById('rename-input').value = tab.name;
+      document.getElementById('modal-rename-tablet').classList.remove('hidden');
+    }
+
+    function saveTabletRename() {
+      const id = parseInt(document.getElementById('rename-target-id').value);
+      const newName = document.getElementById('rename-input').value.trim();
+      if (!newName) return;
+
+      const tab = tablets.find(t => t.id === id);
+      if (tab) {
+        tab.name = newName;
+        broadcastState('RENAME_TABLET', { id, name: newName });
+        showToast(`Nombre cambiado a: ${newName}`);
+        renderTablets();
+      }
+      closeModal('modal-rename-tablet');
+    }
+
     function disconnectTablet(id) {
       if (remoteVideoStreams[id]) {
         try {
@@ -1666,7 +1033,7 @@
         delete remoteVideoStreams[id];
       }
       tablets = tablets.filter(t => t.id !== id);
-      showToast(`Tablet #${id} desconectada`);
+      showToast(`Tablet retirada de la pantalla`);
       renderTablets();
     }
 
@@ -1680,7 +1047,6 @@
 
     function getTargetTablets() {
       const selected = tablets.filter(t => t.selected);
-      // Si no hay ninguna seleccionada, aplica a todas por defecto para agilidad
       return selected.length > 0 ? selected : tablets;
     }
 
@@ -1692,21 +1058,16 @@
         if (minutes === -1) {
           t.remainingSeconds = 99999;
           t.totalSeconds = 99999;
-          t.status = 'active';
         } else {
-          const addSec = minutes * 60;
-          t.remainingSeconds += addSec;
-          t.totalSeconds += addSec;
-          t.status = 'active';
+          t.remainingSeconds += (minutes * 60);
+          t.totalSeconds += (minutes * 60);
         }
+        t.status = 'active';
       });
 
-      // Emitir en vivo a las tablets
       broadcastState('BULK_TIME', { minutes, targetIds });
-
-      showToast(`+${minutes === -1 ? 'Ilimitado' : minutes + 'm'} asignado a ${targets.length} tablet(s)`);
+      showToast(`Tiempo asignado a ${targets.length} tablet(s)`);
       renderTablets();
-      updateClientPreviewUI();
     }
 
     function bulkSetLock(locked) {
@@ -1717,12 +1078,9 @@
         t.status = locked ? 'locked' : (t.remainingSeconds > 0 ? 'active' : 'free');
       });
 
-      // Emitir bloqueo en vivo a las tablets
       broadcastState('BULK_LOCK', { locked, targetIds });
-
       showToast(`${locked ? 'Bloqueadas' : 'Desbloqueadas'} ${targets.length} tablet(s)`);
       renderTablets();
-      updateClientPreviewUI();
     }
 
     function quickAddTime(id, minutes) {
@@ -1731,12 +1089,9 @@
         tab.remainingSeconds += (minutes * 60);
         tab.totalSeconds += (minutes * 60);
         tab.status = 'active';
-        
         broadcastState('BULK_TIME', { minutes, targetIds: [id] });
-
         showToast(`+${minutes}m para ${tab.name}`);
         renderTablets();
-        updateClientPreviewUI();
       }
     }
 
@@ -1745,18 +1100,73 @@
       if (tab) {
         const willLock = (tab.status !== 'locked');
         tab.status = willLock ? 'locked' : (tab.remainingSeconds > 0 ? 'active' : 'free');
-        
         broadcastState('BULK_LOCK', { locked: willLock, targetIds: [id] });
-
         showToast(`${tab.name}: ${tab.status === 'locked' ? 'Bloqueada' : 'Desbloqueada'}`);
         renderTablets();
-        updateClientPreviewUI();
       }
     }
 
-    /* ============================================================
-       5. MODALES: LANZAR WEB Y MENSAJE FLASH
-       ============================================================ */
+    function openPairModalNew() {
+      const nextId = tablets.length > 0 ? Math.max(...tablets.map(t => t.id)) + 1 : 1;
+      const tabNum = String(nextId).padStart(2, '0');
+      openPairModal(nextId, `Tablet #${tabNum}`, `tablet${tabNum}@aula.edu`);
+    }
+
+    function openPairModal(id, customName = null, customEmail = null) {
+      const tab = tablets.find(t => t.id === id);
+      const name = customName || (tab ? tab.name : `Tablet #${String(id).padStart(2, '0')}`);
+      const email = customEmail || (tab ? tab.email : `tablet${id}@aula.edu`);
+
+      document.getElementById('pair-tablet-title').textContent = `Conectar ${name}`;
+      document.getElementById('pair-tablet-email').textContent = email;
+
+      const currentUrl = window.location.href.split('?')[0];
+      const targetUrl = `${currentUrl}?role=tablet&id=${id}&email=${encodeURIComponent(email)}`;
+      document.getElementById('pair-link-input').value = targetUrl;
+
+      const qrBox = document.getElementById('pair-qrcode-box');
+      qrBox.innerHTML = '';
+      if (typeof QRCode !== 'undefined') {
+        try {
+          new QRCode(qrBox, {
+            text: targetUrl,
+            width: 170,
+            height: 170,
+            colorDark: "#0f172a",
+            colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.M
+          });
+        } catch (e) {
+          qrBox.innerHTML = '<span class="text-xs text-slate-800">QR no disponible</span>';
+        }
+      }
+
+      document.getElementById('modal-pair-tablet').classList.remove('hidden');
+    }
+
+    function copyPairLink() {
+      const input = document.getElementById('pair-link-input');
+      copyToClipboard(input.value);
+    }
+
+    function toggleGridDensity() {
+      isVeyonDenseGrid = !isVeyonDenseGrid;
+      const grid = document.getElementById('tablets-grid');
+      const btn = document.getElementById('grid-toggle-btn');
+      if (isVeyonDenseGrid) {
+        grid.className = 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3';
+        btn.classList.add('bg-cyan-600', 'text-white');
+      } else {
+        grid.className = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4';
+        btn.classList.remove('bg-cyan-600', 'text-white');
+      }
+      renderTablets();
+    }
+
+    function openConfigHelpModal() {
+      document.getElementById('modal-config-help').classList.remove('hidden');
+    }
+
     function openLaunchUrlModal() {
       document.getElementById('modal-launch-url').classList.remove('hidden');
     }
@@ -1770,170 +1180,93 @@
       const targets = getTargetTablets();
       const targetIds = targets.map(t => t.id);
 
-      targets.forEach(t => {
-        t.currentApp = 'Web: ' + url.replace('https://', '').split('/')[0];
-      });
-
       broadcastState('LAUNCH_URL', { url, targetIds });
-
       closeModal('modal-launch-url');
       showToast(`Enlace enviado a ${targets.length} tablet(s)`);
-      renderTablets();
+    }
+
+    function openSendMessageModal() {
+      document.getElementById('modal-send-message').classList.remove('hidden');
     }
 
     function executeSendMessage() {
       const msg = document.getElementById('send-msg-input').value;
       globalFlashMessage = msg;
-      
       broadcastState('FLASH_MESSAGE', { message: msg });
-
       closeModal('modal-send-message');
-      showToast(`Mensaje flash emitido`);
-      updateClientPreviewUI();
-
-      setTimeout(() => {
-        globalFlashMessage = '';
-        updateClientPreviewUI();
-      }, 15000);
+      showToast('Mensaje emitido');
+      setTimeout(() => { globalFlashMessage = ''; }, 15000);
     }
 
-    /* ============================================================
-       6. IMPORTACIÓN MASIVA DE CORREOS
-       ============================================================ */
-    function openBulkImportModal() {
-      document.getElementById('modal-bulk-import').classList.remove('hidden');
-    }
+    function checkDeviceRole() {
+      const params = new URLSearchParams(window.location.search);
+      const role = params.get('role');
+      const tabletId = parseInt(params.get('id'));
 
-    function processBulkEmails() {
-      const raw = document.getElementById('bulk-emails-input').value;
-      const emails = raw.split(/[\n,]+/).map(e => e.trim()).filter(e => e.includes('@'));
+      if (role === 'tablet' && tabletId) {
+        document.body.classList.add('overflow-hidden');
+        document.querySelector('header').classList.add('hidden');
+        document.querySelector('main').classList.add('hidden');
 
-      if (emails.length === 0) {
-        showToast('Por favor, ingresa al menos un correo válido.');
-        return;
+        const fsMode = document.getElementById('tablet-fullscreen-mode');
+        fsMode.classList.remove('hidden');
+
+        previewTabletId = tabletId;
+        const tab = tablets.find(t => t.id === tabletId) || { name: `Tablet #${tabletId}` };
+        document.getElementById('tab-fs-name').textContent = tab.name;
+
+        initPeerNetwork(true, tabletId);
+        updateTabletFullscreenUI();
+
+        if ('getBattery' in navigator) {
+          navigator.getBattery().then(bat => {
+            const updateBat = () => {
+              const el = document.getElementById('tab-fs-battery');
+              if (el) el.innerHTML = `<i class="fa-solid fa-battery-half text-emerald-400"></i> ${Math.round(bat.level * 100)}%`;
+            };
+            updateBat();
+            bat.addEventListener('levelchange', updateBat);
+          }).catch(() => {});
+        }
+      } else {
+        initPeerNetwork(false);
       }
-
-      emails.forEach((email, idx) => {
-        const nextId = tablets.length + 1;
-        tablets.push({
-          id: nextId,
-          name: `Tablet #${String(nextId).padStart(2, '0')}`,
-          email: email,
-          status: 'free',
-          remainingSeconds: 0,
-          totalSeconds: 0,
-          battery: Math.floor(Math.random() * 40) + 60,
-          selected: false,
-          currentApp: 'En Espera'
-        });
-      });
-
-      closeModal('modal-bulk-import');
-      document.getElementById('bulk-emails-input').value = '';
-      showToast(`Se agregaron ${emails.length} tablets por correo`);
-      renderTablets();
     }
 
-    function generateSequentialTablets() {
-      const count = parseInt(document.getElementById('quick-gen-count').value) || 5;
-      const domain = document.getElementById('quick-gen-domain').value || 'centro.edu';
-
-      for (let i = 1; i <= count; i++) {
-        const nextId = tablets.length + 1;
-        const numPad = String(nextId).padStart(2, '0');
-        tablets.push({
-          id: nextId,
-          name: `Tablet #${numPad}`,
-          email: `tablet${numPad}@${domain}`,
-          status: 'free',
-          remainingSeconds: 0,
-          totalSeconds: 0,
-          battery: Math.floor(Math.random() * 40) + 60,
-          selected: false,
-          currentApp: 'En Espera'
-        });
-      }
-
-      closeModal('modal-bulk-import');
-      showToast(`Generadas ${count} tablets secuenciales`);
-      renderTablets();
-    }
-
-    function quickAddDevice() {
-      const nextId = tablets.length > 0 ? Math.max(...tablets.map(t => t.id)) + 1 : 1;
-      const numPad = String(nextId).padStart(2, '0');
-      tablets.push({
-        id: nextId,
-        name: `Tablet #${numPad}`,
-        email: `tablet${numPad}@colegio.edu`,
-        status: 'active',
-        remainingSeconds: 1800,
-        totalSeconds: 1800,
-        battery: 100,
-        selected: false,
-        currentApp: 'Conectada'
-      });
-      showToast(`Agregada Tablet #${numPad}`);
-      renderTablets();
-    }
-
-    /* ============================================================
-       7. SIMULADOR DE PANTALLA CLIENTE DE TABLET
-       ============================================================ */
-    function openTabletPreview() {
-      if (tablets.length === 0) {
-        quickAddDevice();
-      }
-      previewTabletId = tablets[0].id;
-      updateClientPreviewUI();
-      document.getElementById('modal-tablet-client').classList.remove('hidden');
-    }
-
-    function previewSpecificTablet(id) {
-      previewTabletId = id;
-      updateClientPreviewUI();
-      document.getElementById('modal-tablet-client').classList.remove('hidden');
-    }
-
-    function updateClientPreviewUI() {
-      const tab = tablets.find(t => t.id === previewTabletId) || tablets[0];
+    function updateTabletFullscreenUI() {
+      const tab = tablets.find(t => t.id === previewTabletId);
       if (!tab) return;
 
-      document.getElementById('client-device-name').textContent = tab.name;
-      document.getElementById('client-user-email').textContent = tab.email;
-      document.getElementById('client-user-title').textContent = `Sesión de ${tab.name}`;
-      document.getElementById('client-battery-pct').textContent = `${tab.battery}%`;
+      const timeEl = document.getElementById('tab-fs-time');
+      const unlockedCard = document.getElementById('tab-fs-unlocked-card');
+      const lockedCard = document.getElementById('tab-fs-locked-card');
+      const flashBox = document.getElementById('tab-fs-flash');
+      const flashText = document.getElementById('tab-fs-flash-text');
 
-      const normalView = document.getElementById('client-normal-view');
-      const lockOverlay = document.getElementById('client-lock-overlay');
-      const countdown = document.getElementById('client-countdown');
-      const timeBar = document.getElementById('client-time-bar');
-      const flashBanner = document.getElementById('client-flash-banner');
-      const flashText = document.getElementById('client-flash-text');
+      if (timeEl) timeEl.textContent = formatTime(tab.remainingSeconds);
 
       if (tab.status === 'locked' || (tab.status === 'free' && tab.remainingSeconds <= 0)) {
-        normalView.classList.add('hidden');
-        lockOverlay.classList.remove('hidden');
+        unlockedCard.classList.add('hidden');
+        lockedCard.classList.remove('hidden');
       } else {
-        normalView.classList.remove('hidden');
-        lockOverlay.classList.add('hidden');
-        countdown.textContent = formatTime(tab.remainingSeconds);
-        const pct = tab.totalSeconds > 0 ? (tab.remainingSeconds / tab.totalSeconds) * 100 : 0;
-        timeBar.style.width = `${pct}%`;
+        unlockedCard.classList.remove('hidden');
+        lockedCard.classList.add('hidden');
       }
 
-      // Mensaje flash
       if (globalFlashMessage) {
         flashText.textContent = globalFlashMessage;
-        flashBanner.classList.remove('hidden');
+        flashBox.classList.remove('hidden');
       } else {
-        flashBanner.classList.add('hidden');
+        flashBox.classList.add('hidden');
       }
     }
 
-    /* ============================================================
-       8. TEMPORIZADOR MAESTRO Y UTILIDADES
-       ============================================================ */
+    function openTabletPreview() {
+      const nextId = tablets.length > 0 ? tablets[0].id : 1;
+      const currentUrl = window.location.href.split('?')[0];
+      window.open(`${currentUrl}?role=tablet&id=${nextId}`, '_blank');
+    }
+
     setInterval(() => {
       let changed = false;
       tablets.forEach(tab => {
@@ -1950,14 +1283,7 @@
 
       if (changed) {
         renderTablets();
-        updateClientPreviewUI();
-      }
-
-      // Reloj de la tablet
-      const now = new Date();
-      const clockEl = document.getElementById('client-clock');
-      if (clockEl) {
-        clockEl.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        updateTabletFullscreenUI();
       }
     }, 1000);
 
@@ -1997,7 +1323,6 @@
       showToast('Enlace copiado al portapapeles');
     }
 
-    // Inicialización al cargar la ventana
     window.onload = function () {
       renderTablets();
       checkDeviceRole();
