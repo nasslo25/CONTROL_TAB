@@ -695,55 +695,68 @@
   <!-- ============================================================ -->
   <script>
     /* ============================================================
-       ARQUITECTURA WEBRTC / P2P ESTILO VEYON
+       ARQUITECTURA WEBRTC / P2P ESTILO VEYON ROBUSTA
        ============================================================ */
     const SYNC_CHANNEL_NAME = 'tabcontrol_realtime_bus';
     const syncChannel = ('BroadcastChannel' in window) ? new BroadcastChannel(SYNC_CHANNEL_NAME) : null;
     
     // Almacén de streams WebRTC de video por cada tablet
     const remoteVideoStreams = {}; // { tabletId: MediaStream }
+    const tabletDataConnections = {}; // { tabletId: DataConnection }
+    let hostDataConnection = null; // Conexión de datos en el cliente hacia el host
     let myLocalStream = null;
     let peerInstance = null;
     let myPeerId = null;
     let isVeyonDenseGrid = false;
     let currentInspectId = null;
 
-    // Generar ID único de sesión para el aula
-    const ROOM_PREFIX = 'VEYON_ROOM_';
-    const currentRoomPin = 'AULA-77';
+    // PIN fijo para emparejar la sesión
+    const ROOM_PREFIX = 'VEYON_TAB_ROOM_';
+    const currentRoomPin = 'AULA77';
+    const hostPeerId = `${ROOM_PREFIX}${currentRoomPin}_HOST_PC`;
 
-    /* Inicializar PeerJS */
+    /* Inicializar PeerJS con soporte P2P nube global */
     function initPeerNetwork(isTablet = false, tabletId = null) {
       const customId = isTablet 
-        ? `${ROOM_PREFIX}${currentRoomPin}_TAB_${tabletId}`
-        : `${ROOM_PREFIX}${currentRoomPin}_HOST_PC`;
+        ? `${ROOM_PREFIX}${currentRoomPin}_DEV_${tabletId}_${Math.floor(Math.random() * 8999 + 1000)}`
+        : hostPeerId;
 
       try {
-        peerInstance = new Peer(customId);
+        if (peerInstance) {
+          try { peerInstance.destroy(); } catch (e) {}
+        }
+
+        // Conectar al broker público gratuito de PeerJS
+        peerInstance = new Peer(customId, {
+          debug: 1
+        });
 
         peerInstance.on('open', (id) => {
           myPeerId = id;
-          console.log('[PeerJS Conectado]', id);
+          console.log('[PeerJS Listo]', id);
 
-          // Si es una tablet física, registrarse de inmediato ante el PC
           if (isTablet) {
-            broadcastState('TABLET_JOINED', {
-              id: tabletId,
-              name: `Tablet #${String(tabletId).padStart(2, '0')}`,
-              email: new URLSearchParams(window.location.search).get('email') || `tablet${tabletId}@aula.edu`
-            });
+            connectTabletToHost(tabletId);
           }
         });
 
-        // Si somos el PC Administrador: recibir llamadas de video de las tablets
+        // Modo Host (PC): Recibir conexiones de datos de tablets reales
         if (!isTablet) {
+          peerInstance.on('connection', (conn) => {
+            conn.on('open', () => {
+              conn.on('data', (data) => {
+                handleTabletIncomingMessage(data, conn);
+              });
+            });
+          });
+
+          // Modo Host: Recibir streaming de video
           peerInstance.on('call', (call) => {
-            call.answer(); // Aceptar transmisión de video
+            call.answer(); // Aceptar llamada de video entrante
             call.on('stream', (remoteStream) => {
-              const parts = call.peer.split('_TAB_');
-              if (parts.length > 1) {
-                const incomingTabId = parseInt(parts[1]);
-                attachRemoteStream(incomingTabId, remoteStream);
+              const matchedId = call.metadata?.tabletId || parseTabletIdFromPeer(call.peer);
+              if (matchedId) {
+                attachRemoteStream(matchedId, remoteStream);
               }
             });
           });
@@ -751,9 +764,116 @@
 
         peerInstance.on('error', (err) => {
           console.warn('[PeerJS]', err);
+          if (err.type === 'unavailable-id' && !isTablet) {
+            showToast('Aviso: Hay otra consola PC abierta con este mismo PIN');
+          }
         });
       } catch (e) {
-        console.warn('PeerJS fallback', e);
+        console.warn('Error inicializando PeerJS:', e);
+      }
+    }
+
+    function parseTabletIdFromPeer(peerStr) {
+      if (!peerStr) return null;
+      const parts = peerStr.split('_DEV_');
+      if (parts.length > 1) {
+        const idPart = parts[1].split('_')[0];
+        return parseInt(idPart, 10);
+      }
+      return null;
+    }
+
+    /* En la Tablet: Conectar por canal de datos directo al Host PC */
+    function connectTabletToHost(tabletId) {
+      const conn = peerInstance.connect(hostPeerId, {
+        reliable: true,
+        metadata: { tabletId }
+      });
+
+      hostDataConnection = conn;
+
+      conn.on('open', () => {
+        console.log('[Tablet -> PC Conectado]');
+        const statusEl = document.getElementById('tab-fs-network-status');
+        if (statusEl) {
+          statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Conectada al PC';
+        }
+
+        // Registrar tablet con sus datos reales
+        const params = new URLSearchParams(window.location.search);
+        const email = params.get('email') || `tablet${tabletId}@aula.edu`;
+        const name = `Tablet #${String(tabletId).padStart(2, '0')}`;
+
+        conn.send({
+          type: 'TABLET_HELLO',
+          payload: {
+            id: tabletId,
+            name: name,
+            email: email,
+            battery: 100
+          }
+        });
+
+        // Enviar latido cada 3 segundos
+        setInterval(() => {
+          if (conn.open) {
+            conn.send({
+              type: 'TABLET_HEARTBEAT',
+              payload: { id: tabletId }
+            });
+          }
+        }, 3000);
+      });
+
+      conn.on('data', (msg) => {
+        handleIncomingSync(msg);
+      });
+
+      conn.on('close', () => {
+        const statusEl = document.getElementById('tab-fs-network-status');
+        if (statusEl) {
+          statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-rose-500"></span> Reconectando...';
+        }
+        setTimeout(() => connectTabletToHost(tabletId), 4000);
+      });
+    }
+
+    /* En el PC: Procesar datos enviados directamente por las tablets */
+    function handleTabletIncomingMessage(data, conn) {
+      if (!data || !data.type) return;
+
+      if (data.type === 'TABLET_HELLO') {
+        const p = data.payload;
+        tabletDataConnections[p.id] = conn;
+
+        let tab = tablets.find(t => t.id === p.id);
+        if (!tab) {
+          tab = {
+            id: p.id,
+            name: p.name || `Tablet #${String(p.id).padStart(2, '0')}`,
+            email: p.email || `tablet${p.id}@aula.edu`,
+            status: 'active',
+            remainingSeconds: 1800,
+            totalSeconds: 1800,
+            battery: p.battery || 100,
+            selected: false,
+            currentApp: 'Conectada (En Vivo)',
+            streaming: false,
+            lastSeen: Date.now()
+          };
+          tablets.push(tab);
+        } else {
+          tab.status = 'active';
+          tab.lastSeen = Date.now();
+        }
+
+        showToast(`¡${tab.name} conectada exitosamente!`);
+        renderTablets();
+      } else if (data.type === 'TABLET_HEARTBEAT') {
+        const tab = tablets.find(t => t.id === data.payload.id);
+        if (tab) {
+          tab.lastSeen = Date.now();
+        }
       }
     }
 
@@ -763,7 +883,6 @@
       
       let tab = tablets.find(t => t.id === tabletId);
       if (!tab) {
-        // Si no estaba en la lista, registrarla dinámicamente
         tab = {
           id: tabletId,
           name: `Tablet #${String(tabletId).padStart(2, '0')}`,
@@ -773,8 +892,9 @@
           totalSeconds: 1800,
           battery: 100,
           selected: false,
-          currentApp: 'Pantalla Compartida',
-          streaming: true
+          currentApp: 'Transmitiendo Pantalla',
+          streaming: true,
+          lastSeen: Date.now()
         };
         tablets.push(tab);
       } else {
@@ -801,49 +921,85 @@
             document.getElementById('inspect-no-video').classList.add('hidden');
           }
         }
-      }, 50);
+      }, 80);
 
-      showToast(`¡Transmisión en vivo recibida de Tablet #${tabletId}!`);
+      showToast(`¡Video recibido de Tablet #${tabletId}!`);
     }
 
-    /* Solicitar compartir pantalla en la tablet física */
+    /* Solicitar compartir pantalla o cámara en la tablet física */
     async function requestScreenShare() {
+      const label = document.getElementById('stream-btn-label');
+      const btn = document.getElementById('btn-start-stream');
+
       try {
-        // Solicitar captura de pantalla al navegador (Web Screen Capture API)
-        const stream = await navigator.mediaDevices.getDisplayMedia({
-          video: {
-            cursor: "always",
-            frameRate: 15
-          },
-          audio: false
-        });
+        let stream = null;
 
-        myLocalStream = stream;
-        document.getElementById('stream-btn-label').textContent = 'Transmitiendo en Vivo...';
-        document.getElementById('btn-start-stream').classList.add('from-emerald-600', 'to-teal-600');
-
-        // Llamar al PC Administrador para enviarle el video
-        const targetHostPeer = `${ROOM_PREFIX}${currentRoomPin}_HOST_PC`;
-        if (peerInstance) {
-          const call = peerInstance.call(targetHostPeer, stream);
-          showToast('Pantalla vinculada con el PC Administrador');
+        // Intentar primero capturar pantalla
+        if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
+          try {
+            stream = await navigator.mediaDevices.getDisplayMedia({
+              video: { frameRate: 15 },
+              audio: false
+            });
+          } catch (e) {
+            console.log('No se pudo capturar pantalla, intentando cámara frontal...', e);
+          }
         }
 
-        stream.getVideoTracks()[0].onended = () => {
-          document.getElementById('stream-btn-label').textContent = 'Reiniciar Transmisión de Pantalla';
-          document.getElementById('btn-start-stream').classList.remove('from-emerald-600', 'to-teal-600');
-        };
+        // Si la tablet/navegador móvil no soporta captura de pantalla, recurrir a la cámara
+        if (!stream && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'user', width: 640, height: 480 },
+            audio: false
+          });
+        }
+
+        if (!stream) {
+          showToast('Tu navegador no permite compartir video directo');
+          return;
+        }
+
+        myLocalStream = stream;
+        if (label) label.textContent = 'Transmitiendo en Vivo...';
+        if (btn) btn.classList.add('from-emerald-600', 'to-teal-600');
+
+        // Enviar la videollamada al PC Host
+        if (peerInstance) {
+          peerInstance.call(hostPeerId, stream, {
+            metadata: { tabletId: previewTabletId }
+          });
+          showToast('Transmisión iniciada con el PC');
+        }
+
+        const track = stream.getVideoTracks()[0];
+        if (track) {
+          track.onended = () => {
+            if (label) label.textContent = 'Reiniciar Transmisión de Pantalla';
+            if (btn) btn.classList.remove('from-emerald-600', 'to-teal-600');
+          };
+        }
 
       } catch (err) {
-        console.error('Error al capturar pantalla:', err);
-        showToast('Debes conceder permiso para transmitir la pantalla');
+        console.error('Error al capturar:', err);
+        showToast('Debes conceder permiso de pantalla o cámara para transmitir');
       }
     }
 
-    // Notificar cambios a todas las ventanas / dispositivos en la red
+    // Notificar cambios por P2P a las tablets reales y pestañas locales
     function broadcastState(action, payload) {
       const msg = { action, payload, timestamp: Date.now() };
       
+      // 1. Enviar a través de las conexiones de datos PeerJS a las tablets físicas
+      Object.keys(tabletDataConnections).forEach(tabId => {
+        const conn = tabletDataConnections[tabId];
+        if (conn && conn.open) {
+          try {
+            conn.send(msg);
+          } catch (e) {}
+        }
+      });
+
+      // 2. Enviar por BroadcastChannel para pruebas locales
       if (syncChannel) {
         syncChannel.postMessage(msg);
       }
@@ -864,25 +1020,7 @@
       if (!data || !data.action) return;
       const { action, payload } = data;
 
-      if (action === 'TABLET_JOINED') {
-        const existing = tablets.find(t => t.id === payload.id);
-        if (!existing) {
-          tablets.push({
-            id: payload.id,
-            name: payload.name || `Tablet #${String(payload.id).padStart(2, '0')}`,
-            email: payload.email || `tablet${payload.id}@aula.edu`,
-            status: 'active',
-            remainingSeconds: 1800,
-            totalSeconds: 1800,
-            battery: 100,
-            selected: false,
-            currentApp: 'Conectada',
-            streaming: false
-          });
-          showToast(`¡Se ha conectado ${payload.name || 'una tablet'}!`);
-          renderTablets();
-        }
-      } else if (action === 'BULK_TIME') {
+      if (action === 'BULK_TIME') {
         const { minutes, targetIds } = payload;
         tablets.forEach(t => {
           if (!targetIds || targetIds.includes(t.id)) {
