@@ -308,25 +308,37 @@
     <!-- Contenido de transmisión y estado -->
     <div class="flex-1 flex flex-col items-center justify-center text-center max-w-lg mx-auto w-full">
       <div id="tab-fs-unlocked-card" class="w-full">
-        <div class="w-20 h-20 rounded-3xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center text-3xl mx-auto mb-4 shadow-xl">
+        <div class="w-16 h-16 rounded-3xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center text-2xl mx-auto mb-3 shadow-xl">
           <i class="fa-solid fa-laptop-code"></i>
         </div>
-        <h2 class="text-xl sm:text-2xl font-black text-white">Dispositivo en Supervisión</h2>
-        <p class="text-xs text-slate-400 mt-1 mb-5">Tu pantalla está siendo compartida con la consola del profesor (Veyon Web).</p>
+        <h2 class="text-lg sm:text-xl font-black text-white">Dispositivo Conectado al PC</h2>
+        <p class="text-xs text-slate-400 mt-1 mb-3">La pantalla y actividad de esta tablet se transmiten al profesor en tiempo real.</p>
 
-        <!-- Botón para iniciar o reiniciar el compartir pantalla -->
-        <div class="mb-5">
-          <button id="btn-start-stream" onclick="requestScreenShare()" class="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-bold text-xs sm:text-sm shadow-xl shadow-cyan-600/30 flex items-center justify-center gap-2 mx-auto transition active:scale-95">
+        <!-- Botones de Transmisión -->
+        <div class="mb-4 flex flex-col sm:flex-row gap-2 justify-center">
+          <button id="btn-start-stream" onclick="requestScreenShare()" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-cyan-600/30 flex items-center justify-center gap-1.5 transition active:scale-95">
             <i class="fa-solid fa-display"></i>
-            <span id="stream-btn-label">Transmitir Mi Pantalla al PC</span>
+            <span id="stream-btn-label">Transmitir Pantalla / Cámara</span>
           </button>
-          <p class="text-[11px] text-slate-500 mt-2">Acepta el mensaje del navegador para permitir compartir la pantalla.</p>
+          <button id="btn-start-desk-stream" onclick="startVirtualDesktopStream()" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 font-bold text-xs border border-cyan-500/30 flex items-center justify-center gap-1.5 transition active:scale-95">
+            <i class="fa-solid fa-chalkboard"></i>
+            <span>Pizarra / Cuaderno en Vivo</span>
+          </button>
+        </div>
+
+        <!-- Área de Trabajo Interactiva de la Tablet (Pizarra / Navegador del Alumno) -->
+        <div id="tablet-interactive-workspace" class="bg-slate-900 border border-slate-800 rounded-2xl p-3 mb-4 text-left">
+          <div class="flex items-center justify-between text-[11px] font-semibold text-slate-400 mb-2 border-b border-slate-800 pb-1.5">
+            <span><i class="fa-solid fa-pen text-cyan-400 mr-1"></i> Pizarra / Apuntes (Lo que dibujes se ve en el PC)</span>
+            <button onclick="clearTabletCanvas()" class="text-rose-400 hover:text-rose-300 text-[10px]">Borrar</button>
+          </div>
+          <canvas id="tablet-draw-canvas" class="w-full h-36 bg-slate-950 rounded-xl border border-slate-800 cursor-crosshair touch-none"></canvas>
         </div>
 
         <!-- Tiempo de sesión -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-4">
-          <span class="text-[11px] text-slate-400 uppercase tracking-wider block mb-1">Tiempo de Turno</span>
-          <div id="tab-fs-time" class="text-3xl font-black font-mono-tech text-cyan-300">30:00</div>
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 mb-2 flex items-center justify-between px-4">
+          <span class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Tiempo Restante:</span>
+          <div id="tab-fs-time" class="text-2xl font-black font-mono-tech text-cyan-300">30:00</div>
         </div>
       </div>
 
@@ -912,6 +924,7 @@
           cardVideo.classList.remove('hidden');
           const placeholder = document.getElementById(`screen-placeholder-${tabletId}`);
           if (placeholder) placeholder.classList.add('hidden');
+          cardVideo.play().catch(() => {});
         }
 
         if (currentInspectId === tabletId) {
@@ -919,11 +932,183 @@
           if (inspectVideo) {
             inspectVideo.srcObject = stream;
             document.getElementById('inspect-no-video').classList.add('hidden');
+            inspectVideo.play().catch(() => {});
           }
         }
-      }, 80);
+      }, 50);
 
       showToast(`¡Video recibido de Tablet #${tabletId}!`);
+    }
+
+    /* Recibir fotograma continuo por canal de datos si falla WebRTC tradicional */
+    function handleFrameFromTablet(tabletId, dataUrl) {
+      let tab = tablets.find(t => t.id === tabletId);
+      if (!tab) return;
+      tab.streaming = true;
+      tab.status = 'active';
+
+      let canvasEl = document.getElementById(`screen-canvas-mirror-${tabletId}`);
+      const placeholder = document.getElementById(`screen-placeholder-${tabletId}`);
+      const videoEl = document.getElementById(`screen-video-${tabletId}`);
+
+      if (videoEl) videoEl.classList.add('hidden');
+      if (placeholder) placeholder.classList.add('hidden');
+
+      if (!canvasEl) {
+        const container = document.querySelector(`[onclick="inspectTabletScreen(${tabletId})"]`);
+        if (container) {
+          canvasEl = document.createElement('canvas');
+          canvasEl.id = `screen-canvas-mirror-${tabletId}`;
+          canvasEl.className = 'w-full h-full object-contain';
+          container.appendChild(canvasEl);
+        }
+      }
+
+      if (canvasEl) {
+        const ctx = canvasEl.getContext('2d');
+        const img = new Image();
+        img.onload = () => {
+          canvasEl.width = img.width;
+          canvasEl.height = img.height;
+          ctx.drawImage(img, 0, 0);
+        };
+        img.src = dataUrl;
+      }
+    }
+
+    /* En el PC: Procesar datos enviados directamente por las tablets */
+    function handleTabletIncomingMessage(data, conn) {
+      if (!data || !data.type) return;
+
+      if (data.type === 'TABLET_FRAME') {
+        handleFrameFromTablet(data.payload.id, data.payload.image);
+        return;
+      }
+
+      if (data.type === 'TABLET_HELLO') {
+        const p = data.payload;
+        tabletDataConnections[p.id] = conn;
+
+        let tab = tablets.find(t => t.id === p.id);
+        if (!tab) {
+          tab = {
+            id: p.id,
+            name: p.name || `Tablet #${String(p.id).padStart(2, '0')}`,
+            email: p.email || `tablet${p.id}@aula.edu`,
+            status: 'active',
+            remainingSeconds: 1800,
+            totalSeconds: 1800,
+            battery: p.battery || 100,
+            selected: false,
+            currentApp: 'Conectada (En Vivo)',
+            streaming: false,
+            lastSeen: Date.now()
+          };
+          tablets.push(tab);
+        } else {
+          tab.status = 'active';
+          tab.lastSeen = Date.now();
+        }
+
+        showToast(`¡${tab.name} conectada exitosamente!`);
+        renderTablets();
+      } else if (data.type === 'TABLET_HEARTBEAT') {
+        const tab = tablets.find(t => t.id === data.payload.id);
+        if (tab) {
+          tab.lastSeen = Date.now();
+        }
+      }
+    }
+
+    /* Pizarra interactiva del alumno con transmisión automática hacia el PC */
+    let drawInterval = null;
+    function initTabletDrawingBoard() {
+      const cv = document.getElementById('tablet-draw-canvas');
+      if (!cv) return;
+      const ctx = cv.getContext('2d');
+      cv.width = cv.clientWidth || 340;
+      cv.height = 144;
+
+      // Fondo inicial
+      ctx.fillStyle = '#020617';
+      ctx.fillRect(0, 0, cv.width, cv.height);
+      ctx.fillStyle = '#64748b';
+      ctx.font = '12px Inter';
+      ctx.fillText('Escribe o dibuja aquí para que aparezca en el PC', 15, 25);
+
+      let drawing = false;
+
+      function getPos(e) {
+        const r = cv.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        return { x: clientX - r.left, y: clientY - r.top };
+      }
+
+      function startDraw(e) {
+        drawing = true;
+        const pos = getPos(e);
+        ctx.beginPath();
+        ctx.moveTo(pos.x, pos.y);
+      }
+
+      function draw(e) {
+        if (!drawing) return;
+        const pos = getPos(e);
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.lineTo(pos.x, pos.y);
+        ctx.stroke();
+      }
+
+      function stopDraw() {
+        drawing = false;
+      }
+
+      cv.addEventListener('mousedown', startDraw);
+      cv.addEventListener('mousemove', draw);
+      window.addEventListener('mouseup', stopDraw);
+
+      cv.addEventListener('touchstart', (e) => { e.preventDefault(); startDraw(e); }, { passive: false });
+      cv.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e); }, { passive: false });
+      cv.addEventListener('touchend', stopDraw);
+
+      // Iniciar stream de fotogramas del lienzo hacia el PC cada 200ms
+      startVirtualDesktopStream();
+    }
+
+    function clearTabletCanvas() {
+      const cv = document.getElementById('tablet-draw-canvas');
+      if (!cv) return;
+      const ctx = cv.getContext('2d');
+      ctx.fillStyle = '#020617';
+      ctx.fillRect(0, 0, cv.width, cv.height);
+    }
+
+    /* Transmisión de lienzo/escritorio hacia el PC vía canal de datos rápido */
+    function startVirtualDesktopStream() {
+      const cv = document.getElementById('tablet-draw-canvas');
+      if (!cv) return;
+
+      if (drawInterval) clearInterval(drawInterval);
+
+      drawInterval = setInterval(() => {
+        if (hostDataConnection && hostDataConnection.open) {
+          try {
+            const dataUrl = cv.toDataURL('image/jpeg', 0.5);
+            hostDataConnection.send({
+              type: 'TABLET_FRAME',
+              payload: {
+                id: previewTabletId,
+                image: dataUrl
+              }
+            });
+          } catch (e) {}
+        }
+      }, 200);
+
+      showToast('Transmitiendo lienzo en tiempo real al PC');
     }
 
     /* Solicitar compartir pantalla o cámara en la tablet física */
@@ -934,7 +1119,6 @@
       try {
         let stream = null;
 
-        // Intentar primero capturar pantalla
         if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
           try {
             stream = await navigator.mediaDevices.getDisplayMedia({
@@ -942,11 +1126,10 @@
               audio: false
             });
           } catch (e) {
-            console.log('No se pudo capturar pantalla, intentando cámara frontal...', e);
+            console.log('No se pudo capturar pantalla en tablet, usando cámara...', e);
           }
         }
 
-        // Si la tablet/navegador móvil no soporta captura de pantalla, recurrir a la cámara
         if (!stream && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
           stream = await navigator.mediaDevices.getUserMedia({
             video: { facingMode: 'user', width: 640, height: 480 },
@@ -954,34 +1137,48 @@
           });
         }
 
-        if (!stream) {
-          showToast('Tu navegador no permite compartir video directo');
-          return;
+        if (stream) {
+          myLocalStream = stream;
+          if (label) label.textContent = 'Transmitiendo en Vivo...';
+          if (btn) btn.classList.add('from-emerald-600', 'to-teal-600');
+
+          if (peerInstance) {
+            peerInstance.call(hostPeerId, stream, {
+              metadata: { tabletId: previewTabletId }
+            });
+          }
+
+          // Si es cámara o pantalla, además transmitir fotogramas por si el PC no abre el WebRTC directo
+          const track = stream.getVideoTracks()[0];
+          const trackCapture = new ImageCapture(track);
+          setInterval(async () => {
+            if (hostDataConnection && hostDataConnection.open && track.readyState === 'live') {
+              try {
+                const bitmap = await trackCapture.grabFrame();
+                const offscreen = document.createElement('canvas');
+                offscreen.width = 320;
+                offscreen.height = 200;
+                const octx = offscreen.getContext('2d');
+                octx.drawImage(bitmap, 0, 0, 320, 200);
+                hostDataConnection.send({
+                  type: 'TABLET_FRAME',
+                  payload: {
+                    id: previewTabletId,
+                    image: offscreen.toDataURL('image/jpeg', 0.4)
+                  }
+                });
+              } catch (e) {}
+            }
+          }, 300);
+
+          showToast('Transmisión de video iniciada');
+        } else {
+          // Si el navegador denegó permisos, recurrir al lienzo virtual
+          startVirtualDesktopStream();
         }
-
-        myLocalStream = stream;
-        if (label) label.textContent = 'Transmitiendo en Vivo...';
-        if (btn) btn.classList.add('from-emerald-600', 'to-teal-600');
-
-        // Enviar la videollamada al PC Host
-        if (peerInstance) {
-          peerInstance.call(hostPeerId, stream, {
-            metadata: { tabletId: previewTabletId }
-          });
-          showToast('Transmisión iniciada con el PC');
-        }
-
-        const track = stream.getVideoTracks()[0];
-        if (track) {
-          track.onended = () => {
-            if (label) label.textContent = 'Reiniciar Transmisión de Pantalla';
-            if (btn) btn.classList.remove('from-emerald-600', 'to-teal-600');
-          };
-        }
-
       } catch (err) {
-        console.error('Error al capturar:', err);
-        showToast('Debes conceder permiso de pantalla o cámara para transmitir');
+        console.warn('Permiso no concedido para video directo, usando pizarra espejo:', err);
+        startVirtualDesktopStream();
       }
     }
 
@@ -1173,8 +1370,9 @@
         // Iniciar PeerJS como cliente transmisor
         initPeerNetwork(true, tabletId);
 
-        // Actualizar estado
+        // Actualizar estado e inicializar pizarra del alumno
         updateTabletFullscreenUI();
+        setTimeout(initTabletDrawingBoard, 150);
 
         // Leer nivel de batería del dispositivo real
         if ('getBattery' in navigator) {
