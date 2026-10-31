@@ -3,13 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TabControl Pro - Gestor Central de Tablets (Estilo Veyon)</title>
+  <title>VeyonWeb Fleet Manager - Control Central de Tablets</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <!-- QRCode.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- MQTT Paho WebSocket client for robust multi-device cross-network signaling -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
     body {
@@ -22,20 +24,20 @@
       font-family: 'JetBrains Mono', monospace;
     }
     .screen-video-container {
-      background: #020617;
+      background: #000000;
       position: relative;
       aspect-ratio: 16 / 10;
       overflow: hidden;
       border-radius: 0.75rem;
     }
     .screen-video-container video,
-    .screen-video-container canvas {
+    .screen-video-container canvas,
+    .screen-video-container img {
       width: 100%;
       height: 100%;
       object-fit: contain;
       display: block;
     }
-    /* Estilos de scrollbar personalizados */
     ::-webkit-scrollbar {
       width: 6px;
       height: 6px;
@@ -55,30 +57,30 @@
   <header class="bg-slate-900/95 border-b border-slate-800 px-3 sm:px-6 py-2.5 sticky top-0 z-40 backdrop-blur flex flex-wrap items-center justify-between gap-3 shadow-xl">
     <div class="flex items-center gap-3">
       <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/25">
-        <i class="fa-solid fa-tablet-screen-button text-lg sm:text-xl"></i>
+        <i class="fa-solid fa-network-wired text-lg sm:text-xl"></i>
       </div>
       <div>
         <div class="flex items-center gap-2">
           <h1 class="text-base sm:text-lg font-extrabold tracking-tight text-white flex items-center gap-1.5">
-            TabControl<span class="text-cyan-400">Pro</span>
+            Veyon<span class="text-cyan-400">Web</span>
           </h1>
-          <span class="px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-700/50 text-[10px] font-mono-tech uppercase font-bold tracking-wider">
-            Veyon Web
+          <span id="cloud-signal-badge" class="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700/50 text-[10px] font-mono-tech uppercase font-bold tracking-wider flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> CLOUD LIVE
           </span>
         </div>
-        <p class="text-[11px] text-slate-400 hidden sm:block">Control Centralizado y Supervisión de Pantallas en Vivo</p>
+        <p class="text-[11px] text-slate-400 hidden sm:block">Control Centralizado y Video Transmisión Directa</p>
       </div>
     </div>
 
     <!-- Selector de Modo Rápido (PC vs Tablet) -->
     <div class="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-1 text-xs">
       <button id="view-mode-pc-btn" onclick="switchMainRole('pc')" class="px-3 py-1.5 rounded-lg bg-cyan-600 text-white font-bold transition flex items-center gap-1.5 shadow">
-        <i class="fa-solid fa-chalkboard-user"></i>
-        <span>Panel PC</span>
+        <i class="fa-solid fa-desktop"></i>
+        <span>Panel PC (Profesor)</span>
       </button>
       <button id="view-mode-tab-btn" onclick="switchMainRole('tablet')" class="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white font-medium transition flex items-center gap-1.5">
         <i class="fa-solid fa-mobile-screen"></i>
-        <span>Modo Tablet</span>
+        <span>Modo Tablet (Alumno)</span>
       </button>
     </div>
 
@@ -86,24 +88,18 @@
     <div class="flex items-center gap-2 flex-wrap" id="header-pc-actions">
       <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs font-mono-tech">
         <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-        <span class="text-slate-400">PIN Aula:</span>
+        <span class="text-slate-400">PIN:</span>
         <strong id="session-pin-code" class="text-cyan-400 tracking-wider">AULA77</strong>
       </div>
 
       <button onclick="addSimulatedTablet()" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 transition active:scale-95 shadow">
         <i class="fa-solid fa-plus"></i>
-        <span>+ Probar Tablet</span>
+        <span>+ Demo Tablet</span>
       </button>
 
       <button onclick="openPairModalNew()" class="px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs flex items-center gap-1.5 transition active:scale-95 shadow">
         <i class="fa-solid fa-qrcode"></i>
-        <span class="hidden sm:inline">Vincular Tablet (QR)</span>
-        <span class="sm:hidden">QR</span>
-      </button>
-
-      <button onclick="openConfigHelpModal()" class="p-2 sm:px-3 sm:py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition" title="Guía de uso">
-        <i class="fa-solid fa-circle-question text-amber-400"></i>
-        <span class="hidden md:inline">Ayuda</span>
+        <span>Vincular Tablet (QR)</span>
       </button>
     </div>
   </header>
@@ -131,7 +127,7 @@
           <span class="text-2xl font-black text-emerald-300 font-mono-tech" id="stat-active">0</span>
         </div>
         <div class="w-10 h-10 rounded-xl bg-emerald-950/60 text-emerald-400 border border-emerald-800/40 flex items-center justify-center text-lg">
-          <i class="fa-solid fa-play"></i>
+          <i class="fa-solid fa-video"></i>
         </div>
       </div>
 
@@ -209,30 +205,6 @@
       </div>
     </div>
 
-    <!-- Barra de Búsqueda y Densidad de Mosaico -->
-    <div class="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-      <div class="flex items-center gap-2 w-full sm:w-auto">
-        <div class="relative flex-1 sm:w-72">
-          <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"></i>
-          <input type="text" id="search-filter" oninput="applyFilters()" placeholder="Buscar por nombre o correo..." class="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500">
-        </div>
-
-        <select id="status-filter" onchange="applyFilters()" class="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-cyan-500">
-          <option value="all">Todos los estados</option>
-          <option value="active">En Uso / Streaming</option>
-          <option value="free">Libres</option>
-          <option value="locked">Bloqueadas</option>
-        </select>
-      </div>
-
-      <div class="flex items-center gap-2 self-end sm:self-auto">
-        <button onclick="toggleGridDensity()" id="grid-toggle-btn" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs flex items-center gap-1.5 transition">
-          <i class="fa-solid fa-table-cells"></i>
-          <span id="grid-toggle-text">Mosaico Compacto</span>
-        </button>
-      </div>
-    </div>
-
     <!-- Mosaico Veyon de Pantallas -->
     <div id="tablets-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
       <!-- Inyectado por JavaScript -->
@@ -251,40 +223,53 @@
       </div>
       <div class="flex items-center gap-3 text-slate-400">
         <span id="tab-client-conn-status" class="flex items-center gap-1.5 text-emerald-400">
-          <i class="fa-solid fa-circle-check"></i> Enlazada al PC
+          <i class="fa-solid fa-circle-check"></i> Enlazada (Aula PIN: <span id="client-room-pin">AULA77</span>)
         </span>
-        <span id="tab-client-battery"><i class="fa-solid fa-battery-three-quarters text-emerald-400"></i> 85%</span>
+        <span id="tab-client-battery"><i class="fa-solid fa-battery-three-quarters text-emerald-400"></i> 90%</span>
       </div>
     </div>
 
     <!-- Contenido Activo / Desbloqueado -->
     <div id="tab-client-active-box" class="flex-1 flex flex-col items-center justify-center text-center">
-      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl">
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-8 max-w-lg w-full shadow-2xl">
         <div class="w-16 h-16 rounded-3xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center text-2xl mx-auto mb-4 shadow-xl">
-          <i class="fa-solid fa-desktop"></i>
+          <i class="fa-solid fa-tower-broadcast"></i>
         </div>
-        <h2 class="text-xl font-black text-white">Transmisión de Pantalla</h2>
+        <h2 class="text-xl font-black text-white">Transmisión de Video en Vivo</h2>
         <p class="text-xs text-slate-400 mt-1 mb-5 leading-relaxed">
-          Comparte tu pantalla en tiempo real con el profesor o interactúa con el cuaderno de trabajo.
+          Selecciona una forma de transmitir tu actividad en tiempo real hacia el monitor del profesor:
         </p>
 
-        <!-- Botones de Transmisión -->
-        <div class="flex flex-col gap-2.5 mb-5">
-          <button id="btn-stream-screen" onclick="startNativeScreenShare()" class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-bold text-xs sm:text-sm shadow-lg shadow-cyan-600/30 flex items-center justify-center gap-2 transition active:scale-95">
+        <!-- Botones de Transmisión Directa -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-4">
+          <button id="btn-stream-screen" onclick="startNativeScreenShare()" class="py-3 px-3 rounded-xl bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-cyan-600/30 flex items-center justify-center gap-2 transition active:scale-95">
             <i class="fa-solid fa-display"></i>
-            <span id="stream-btn-text">Transmitir Pantalla Completa</span>
+            <span id="stream-btn-text">Transmitir Pantalla</span>
           </button>
           
-          <button onclick="toggleTabletDrawingBoard()" class="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs border border-slate-700 flex items-center justify-center gap-2 transition">
-            <i class="fa-solid fa-pen-nib text-cyan-400"></i>
-            <span>Abrir Cuaderno / Pizarra Interactiva</span>
+          <button id="btn-stream-camera" onclick="startCameraShare()" class="py-3 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 transition active:scale-95">
+            <i class="fa-solid fa-camera"></i>
+            <span id="camera-btn-text">Transmitir Cámara</span>
           </button>
+        </div>
+
+        <button onclick="toggleTabletDrawingBoard()" class="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs border border-slate-700 flex items-center justify-center gap-2 transition mb-4">
+          <i class="fa-solid fa-pen-nib text-cyan-400"></i>
+          <span>Abrir Cuaderno / Pizarra Táctil en Vivo</span>
+        </button>
+
+        <!-- Preview local de video si está activo -->
+        <div id="local-video-preview-wrapper" class="hidden mb-4 rounded-xl overflow-hidden border border-cyan-500/50 bg-black aspect-video relative">
+          <video id="tablet-local-video" autoplay playsinline muted class="w-full h-full object-cover"></video>
+          <div class="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/70 text-emerald-400 text-[10px] font-mono-tech flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> EN VIVO HACIA EL PC
+          </div>
         </div>
 
         <!-- Pizarra interactiva del alumno -->
-        <div id="tablet-draw-area" class="hidden mb-4 bg-slate-950 p-2 rounded-2xl border border-slate-800">
+        <div id="tablet-draw-area" class="mb-4 bg-slate-950 p-2 rounded-2xl border border-slate-800">
           <div class="flex justify-between items-center text-[11px] text-slate-400 mb-2 px-1">
-            <span>Dibuja aquí (se refleja en vivo en el PC del profesor):</span>
+            <span>Dibuja aquí (se refleja segundo a segundo en el PC):</span>
             <button onclick="clearTabletBoard()" class="text-rose-400 hover:underline">Borrar</button>
           </div>
           <canvas id="tabletBoardCanvas" width="360" height="200" class="w-full bg-slate-900 rounded-xl cursor-crosshair border border-slate-800"></canvas>
@@ -347,8 +332,7 @@
         </div>
       </div>
       <div class="flex-1 bg-black flex items-center justify-center relative overflow-hidden min-h-[420px]">
-        <video id="inspect-video-player" autoplay playsinline class="w-full h-full object-contain max-h-[78vh]"></video>
-        <canvas id="inspect-canvas-player" class="w-full h-full object-contain max-h-[78vh] hidden"></canvas>
+        <img id="inspect-img-player" class="w-full h-full object-contain max-h-[78vh] hidden" alt="Live Stream">
         <div id="inspect-no-video" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500 gap-3">
           <i class="fa-solid fa-display text-5xl"></i>
           <p class="text-xs font-mono-tech text-center">Esperando señal de transmisión de la tablet...</p>
@@ -379,7 +363,7 @@
         <ol class="list-decimal pl-4 space-y-1 text-slate-400 text-[11px]">
           <li>Abre la cámara o el navegador Chrome/Safari.</li>
           <li>Escanea el código QR o ingresa la URL de abajo.</li>
-          <li>Pulsa "Transmitir Pantalla" y se reflejará aquí al instante.</li>
+          <li>Pulsa "Transmitir Pantalla" o "Transmitir Cámara" y se reflejará aquí al instante.</li>
         </ol>
       </div>
 
@@ -482,52 +466,6 @@
     </div>
   </div>
 
-  <!-- Modal: Guía de Uso -->
-  <div id="modal-config-help" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-slate-900 border border-slate-700 rounded-3xl max-w-xl w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
-      <button onclick="closeModal('modal-config-help')" class="absolute top-4 right-4 text-slate-400 hover:text-white p-2">
-        <i class="fa-solid fa-xmark text-lg"></i>
-      </button>
-
-      <div class="flex items-center gap-3 mb-4">
-        <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-xl">
-          <i class="fa-solid fa-circle-question"></i>
-        </div>
-        <div>
-          <h3 class="text-base font-bold text-white">Guía Rápida de Funcionamiento</h3>
-          <p class="text-xs text-slate-400">Cómo supervisar y conectar tablets</p>
-        </div>
-      </div>
-
-      <div class="space-y-3 text-xs text-slate-300">
-        <div class="p-3.5 bg-slate-950 rounded-2xl border border-slate-800">
-          <strong class="text-cyan-400 block mb-1">1. ¿Cómo vincular una Tablet real?</strong>
-          <p class="text-slate-400 text-[11px] leading-relaxed">
-            Pulsa el botón <strong>"Vincular Tablet (QR)"</strong> arriba a la derecha. Escanea el código con la cámara de tu tablet Android o iPad. Al abrirse, la tablet se conectará inmediatamente a este PC.
-          </p>
-        </div>
-        <div class="p-3.5 bg-slate-950 rounded-2xl border border-slate-800">
-          <strong class="text-emerald-400 block mb-1">2. Prueba Rápida Instantánea</strong>
-          <p class="text-slate-400 text-[11px] leading-relaxed">
-            Si estás probando en este PC, haz clic en <strong>"+ Probar Tablet"</strong>: agregará una tablet con transmisión activa de demostración para que veas los controles y bloqueos en acción.
-          </p>
-        </div>
-        <div class="p-3.5 bg-slate-950 rounded-2xl border border-slate-800">
-          <strong class="text-purple-400 block mb-1">3. Conmutador de Rol (Arriba al centro)</strong>
-          <p class="text-slate-400 text-[11px] leading-relaxed">
-            Puedes alternar entre la vista <strong>"Panel PC"</strong> (Profesor) y <strong>"Modo Tablet"</strong> (Alumno) con un solo clic para verificar cómo ven la pantalla los estudiantes.
-          </p>
-        </div>
-      </div>
-
-      <div class="mt-5 flex justify-end">
-        <button onclick="closeModal('modal-config-help')" class="px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs transition">
-          Entendido
-        </button>
-      </div>
-    </div>
-  </div>
-
   <!-- Toast de Notificaciones -->
   <div id="toast" class="fixed bottom-5 right-5 bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-2xl shadow-2xl text-xs z-50 flex items-center gap-2 transform translate-y-24 opacity-0 transition-all duration-300 pointer-events-none">
     <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400 text-sm"></i>
@@ -536,29 +474,203 @@
 
   <!-- LÓGICA JAVASCRIPT COMPLETA Y AUTOCONTENIDA -->
   <script>
-    // Bus de Comunicación en Tiempo Real entre pestañas/dispositivos
-    const SYNC_CHANNEL_NAME = 'tabcontrol_realtime_bus';
-    const syncChannel = ('BroadcastChannel' in window) ? new BroadcastChannel(SYNC_CHANNEL_NAME) : null;
+    // Configuración de Sala / PIN
+    const ROOM_PIN = 'AULA77';
+    const MQTT_BROKER = 'broker.emqx.io';
+    const MQTT_PORT = 8084; // WebSocket SSL
+    const MQTT_TOPIC_PREFIX = `veyon_aula_${ROOM_PIN}/`;
+
+    // Bus de Comunicación Local y Remoto
+    const syncChannel = ('BroadcastChannel' in window) ? new BroadcastChannel('veyon_local_bus') : null;
+    let mqttClient = null;
+    let isCloudConnected = false;
 
     // Estado Global
     let currentRole = 'pc'; // 'pc' o 'tablet'
     let tablets = [];
-    const remoteVideoStreams = {};
-    const remoteCanvasFrames = {}; // Fallback para streaming de fotogramas
-    let isVeyonDenseGrid = false;
+    const remoteCanvasFrames = {}; // Frames JPEG recibidos por cada tablet
     let currentInspectId = null;
     let globalFlashMessage = '';
     let clientTabletId = 1;
-    let localScreenStream = null;
+    let activeMediaStream = null;
+    let streamInterval = null;
 
-    // Variables de la Pizarra de la Tablet
+    // Pizarra Tablet
     let tabletBoardCanvas = null;
     let tabletBoardCtx = null;
     let isDrawing = false;
-    let boardStreamInterval = null;
 
     /* ============================================================
-       1. INICIALIZACIÓN Y GESTIÓN DE ROLES
+       1. SISTEMA DE MENSAJERÍA HÍBRIDO (LOCAL + CLOUD MQTT)
+       ============================================================ */
+    function initMessagingNetwork() {
+      // 1. Canal local BroadcastChannel
+      if (syncChannel) {
+        syncChannel.onmessage = (event) => handleIncomingMessage(event.data);
+      }
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'veyon_last_msg' && e.newValue) {
+          try { handleIncomingMessage(JSON.parse(e.newValue)); } catch (err) {}
+        }
+      });
+
+      // 2. Canal Cloud WebSocket MQTT público y seguro
+      try {
+        if (typeof Paho !== 'undefined' && Paho.MQTT) {
+          const clientId = `veyon_${Math.random().toString(16).substr(2, 8)}`;
+          mqttClient = new Paho.MQTT.Client(MQTT_BROKER, MQTT_PORT, clientId);
+
+          mqttClient.onConnectionLost = (responseObject) => {
+            isCloudConnected = false;
+            updateCloudIndicator(false);
+            setTimeout(initMessagingNetwork, 3000);
+          };
+
+          mqttClient.onMessageArrived = (message) => {
+            try {
+              const data = JSON.parse(message.payloadString);
+              handleIncomingMessage(data);
+            } catch (e) {}
+          };
+
+          mqttClient.connect({
+            useSSL: true,
+            timeout: 5,
+            onSuccess: () => {
+              isCloudConnected = true;
+              updateCloudIndicator(true);
+              mqttClient.subscribe(`${MQTT_TOPIC_PREFIX}#`);
+              // Si es tablet, anuncia conexión
+              if (currentRole === 'tablet') {
+                sendTabletHeartbeat();
+              }
+            },
+            onFailure: (err) => {
+              isCloudConnected = false;
+              updateCloudIndicator(false);
+            }
+          });
+        }
+      } catch (err) {
+        console.warn('MQTT fallback a local bus:', err);
+      }
+    }
+
+    function updateCloudIndicator(connected) {
+      const badge = document.getElementById('cloud-signal-badge');
+      if (!badge) return;
+      if (connected) {
+        badge.className = 'px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700/50 text-[10px] font-mono-tech uppercase font-bold tracking-wider flex items-center gap-1';
+        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> CLOUD LIVE';
+      } else {
+        badge.className = 'px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 text-[10px] font-mono-tech uppercase font-bold tracking-wider flex items-center gap-1';
+        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span> LOCAL P2P';
+      }
+    }
+
+    function broadcastMessage(msgObj) {
+      msgObj.timestamp = Date.now();
+      const str = JSON.stringify(msgObj);
+
+      // Enviar por local bus
+      if (syncChannel) {
+        syncChannel.postMessage(msgObj);
+      }
+      try {
+        localStorage.setItem('veyon_last_msg', str);
+      } catch (e) {}
+
+      // Enviar por cloud MQTT
+      if (mqttClient && mqttClient.isConnected()) {
+        try {
+          const message = new Paho.MQTT.Message(str);
+          message.destinationName = `${MQTT_TOPIC_PREFIX}broadcast`;
+          mqttClient.send(message);
+        } catch (e) {}
+      }
+    }
+
+    function handleIncomingMessage(msg) {
+      if (!msg || !msg.type) return;
+
+      if (msg.type === 'TABLET_JOINED') {
+        const p = msg.payload;
+        let tab = tablets.find(t => t.id === p.id);
+        if (!tab) {
+          tab = {
+            id: p.id,
+            name: p.name,
+            email: p.email,
+            status: 'active',
+            remainingSeconds: p.remainingSeconds || 1800,
+            totalSeconds: 1800,
+            battery: p.battery || 85,
+            selected: false,
+            streaming: true
+          };
+          tablets.push(tab);
+          renderTablets();
+          showToast(`¡${p.name} se ha conectado!`);
+        }
+      } else if (msg.type === 'TABLET_FRAME') {
+        const { id, frame } = msg.payload;
+        remoteCanvasFrames[id] = frame;
+        updateCardMirror(id);
+      } else if (msg.type === 'BULK_TIME') {
+        const { minutes, targetIds } = msg.payload;
+        tablets.forEach(t => {
+          if (!targetIds || targetIds.includes(t.id)) {
+            if (minutes === -1) {
+              t.remainingSeconds = 99999;
+              t.totalSeconds = 99999;
+            } else {
+              t.remainingSeconds += (minutes * 60);
+              t.totalSeconds += (minutes * 60);
+            }
+            t.status = 'active';
+          }
+        });
+        renderTablets();
+        updateTabletClientUI();
+      } else if (msg.type === 'BULK_LOCK') {
+        const { locked, targetIds } = msg.payload;
+        tablets.forEach(t => {
+          if (!targetIds || targetIds.includes(t.id)) {
+            t.status = locked ? 'locked' : (t.remainingSeconds > 0 ? 'active' : 'free');
+          }
+        });
+        renderTablets();
+        updateTabletClientUI();
+      } else if (msg.type === 'FLASH_MESSAGE') {
+        globalFlashMessage = msg.payload.message;
+        updateTabletClientUI();
+        setTimeout(() => {
+          globalFlashMessage = '';
+          updateTabletClientUI();
+        }, 15000);
+      } else if (msg.type === 'LAUNCH_URL') {
+        const { url, targetIds } = msg.payload;
+        if (!targetIds || targetIds.includes(clientTabletId)) {
+          if (currentRole === 'tablet') {
+            window.open(url, '_blank');
+          }
+        }
+      } else if (msg.type === 'RENAME_TABLET') {
+        const { id, name } = msg.payload;
+        const tab = tablets.find(t => t.id === id);
+        if (tab) {
+          tab.name = name;
+          renderTablets();
+        }
+        if (clientTabletId === id) {
+          const el = document.getElementById('tab-client-name');
+          if (el) el.textContent = name;
+        }
+      }
+    }
+
+    /* ============================================================
+       2. GESTIÓN DE ROLES (PC ADMIN vs TABLET CLIENT)
        ============================================================ */
     function checkInitialRole() {
       const params = new URLSearchParams(window.location.search);
@@ -599,26 +711,34 @@
     }
 
     /* ============================================================
-       2. MODO TABLET CLIENTE (TRANSMISIÓN Y RESPONSIVIDAD)
+       3. MODO TABLET (CAPTURA PANTALLA / CÁMARA / PIZARRA)
        ============================================================ */
     function initTabletClientMode() {
       const nameEl = document.getElementById('tab-client-name');
       const numStr = String(clientTabletId).padStart(2, '0');
       nameEl.textContent = `Tablet #${numStr}`;
 
-      // Enviar evento de conexión al PC
+      initTabletDrawingCanvas();
+      sendTabletHeartbeat();
+      updateTabletClientUI();
+
+      // Transmisión de fotogramas periódica
+      if (!streamInterval) {
+        streamInterval = setInterval(captureAndSendFrame, 350); // ~3 FPS para estabilidad en redes móviles
+      }
+    }
+
+    function sendTabletHeartbeat() {
+      const numStr = String(clientTabletId).padStart(2, '0');
       broadcastMessage({
         type: 'TABLET_JOINED',
         payload: {
           id: clientTabletId,
           name: `Tablet #${numStr}`,
           email: `tablet${numStr}@aula.edu`,
-          battery: 85
+          battery: 90
         }
       });
-
-      initTabletDrawingCanvas();
-      updateTabletClientUI();
     }
 
     function initTabletDrawingCanvas() {
@@ -626,20 +746,11 @@
       if (!tabletBoardCanvas) return;
       tabletBoardCtx = tabletBoardCanvas.getContext('2d');
 
-      // Fondo oscuro para la pizarra
       tabletBoardCtx.fillStyle = '#0f172a';
       tabletBoardCtx.fillRect(0, 0, tabletBoardCanvas.width, tabletBoardCanvas.height);
 
-      // Eventos de dibujo táctil y ratón
-      const startDraw = (e) => {
-        isDrawing = true;
-        draw(e);
-      };
-      const stopDraw = () => {
-        isDrawing = false;
-        tabletBoardCtx.beginPath();
-        emitCanvasFrame();
-      };
+      const startDraw = (e) => { isDrawing = true; draw(e); };
+      const stopDraw = () => { isDrawing = false; tabletBoardCtx.beginPath(); captureAndSendFrame(); };
       const draw = (e) => {
         if (!isDrawing) return;
         const rect = tabletBoardCanvas.getBoundingClientRect();
@@ -650,7 +761,7 @@
 
         tabletBoardCtx.lineWidth = 3;
         tabletBoardCtx.lineCap = 'round';
-        tabletBoardCtx.strokeStyle = '#38bdf8'; // Cyan
+        tabletBoardCtx.strokeStyle = '#38bdf8';
         tabletBoardCtx.lineTo(x, y);
         tabletBoardCtx.stroke();
         tabletBoardCtx.beginPath();
@@ -669,66 +780,94 @@
       if (!tabletBoardCtx || !tabletBoardCanvas) return;
       tabletBoardCtx.fillStyle = '#0f172a';
       tabletBoardCtx.fillRect(0, 0, tabletBoardCanvas.width, tabletBoardCanvas.height);
-      emitCanvasFrame();
+      captureAndSendFrame();
     }
 
     function toggleTabletDrawingBoard() {
       const area = document.getElementById('tablet-draw-area');
       area.classList.toggle('hidden');
-      if (!area.classList.contains('hidden')) {
-        // Enviar fotogramas continuos de la pizarra al PC
-        if (!boardStreamInterval) {
-          boardStreamInterval = setInterval(emitCanvasFrame, 300);
-        }
-      }
     }
 
-    function emitCanvasFrame() {
-      if (!tabletBoardCanvas) return;
-      const dataUrl = tabletBoardCanvas.toDataURL('image/jpeg', 0.6);
-      broadcastMessage({
-        type: 'TABLET_FRAME',
-        payload: {
-          id: clientTabletId,
-          frame: dataUrl
-        }
-      });
-    }
-
+    // A. Transmisión nativa de pantalla
     async function startNativeScreenShare() {
-      const btnText = document.getElementById('stream-btn-text');
       const btn = document.getElementById('btn-stream-screen');
+      const btnText = document.getElementById('stream-btn-text');
 
-      // 1. Intento con API nativa de pantalla (Desktop / Android Chrome moderno)
       if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
         try {
           const stream = await navigator.mediaDevices.getDisplayMedia({
-            video: { frameRate: 15, displaySurface: 'monitor' },
+            video: { frameRate: 15 },
             audio: false
           });
-
-          localScreenStream = stream;
-          btnText.textContent = 'Transmitiendo en Vivo...';
-          btn.classList.add('from-emerald-600', 'to-teal-600');
-
-          // Enviar confirmación de streaming
-          broadcastMessage({
-            type: 'TABLET_STREAM_STARTED',
-            payload: { id: clientTabletId }
-          });
-
+          attachLocalStream(stream);
+          btnText.textContent = 'Transmitiendo Pantalla';
+          btn.className = 'py-3 px-3 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow-lg flex items-center justify-center gap-2 transition';
           showToast('Pantalla compartida con el profesor');
           return;
         } catch (err) {
-          console.warn('getDisplayMedia denegado o no admitido en este dispositivo:', err);
+          console.warn('getDisplayMedia denegado o no admitido:', err);
         }
       }
+      showToast('Captura completa restringida en este navegador. Usa Cámara o Pizarra.');
+    }
 
-      // 2. Fallback automático para iOS / Android donde la captura completa está bloqueada
-      toggleTabletDrawingBoard();
-      btnText.textContent = 'Transmitiendo Pizarra en Vivo';
-      btn.classList.add('from-emerald-600', 'to-teal-600');
-      showToast('Modo transmisión activa iniciado');
+    // B. Transmisión nativa de cámara (Android e iOS 100% compatible)
+    async function startCameraShare() {
+      const btn = document.getElementById('btn-stream-camera');
+      const btnText = document.getElementById('camera-btn-text');
+
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+            audio: false
+          });
+          attachLocalStream(stream);
+          btnText.textContent = 'Transmitiendo Cámara';
+          btn.className = 'py-3 px-3 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow-lg flex items-center justify-center gap-2 transition';
+          showToast('Cámara compartida con el profesor');
+          return;
+        } catch (err) {
+          showToast('Permiso de cámara no concedido');
+        }
+      }
+    }
+
+    function attachLocalStream(stream) {
+      activeMediaStream = stream;
+      const previewWrapper = document.getElementById('local-video-preview-wrapper');
+      const videoEl = document.getElementById('tablet-local-video');
+      videoEl.srcObject = stream;
+      previewWrapper.classList.remove('hidden');
+    }
+
+    // C. Capturador continuo de fotogramas (Canvas / Video -> JPEG)
+    function captureAndSendFrame() {
+      if (currentRole !== 'tablet') return;
+
+      const videoEl = document.getElementById('tablet-local-video');
+      let dataUrl = null;
+
+      if (activeMediaStream && videoEl && videoEl.videoWidth > 0) {
+        const offCanvas = document.createElement('canvas');
+        offCanvas.width = 360;
+        offCanvas.height = 225;
+        const offCtx = offCanvas.getContext('2d');
+        offCtx.drawImage(videoEl, 0, 0, offCanvas.width, offCanvas.height);
+        dataUrl = offCanvas.toDataURL('image/jpeg', 0.45);
+      } else if (tabletBoardCanvas) {
+        dataUrl = tabletBoardCanvas.toDataURL('image/jpeg', 0.45);
+      }
+
+      if (dataUrl) {
+        broadcastMessage({
+          type: 'TABLET_FRAME',
+          payload: {
+            id: clientTabletId,
+            frame: dataUrl
+          }
+        });
+      }
     }
 
     function updateTabletClientUI() {
@@ -762,7 +901,7 @@
     }
 
     /* ============================================================
-       3. CONSOLA VEYON (PANEL PC DEL PROFESOR)
+       4. CONSOLA VEYON (PANEL PC DEL PROFESOR)
        ============================================================ */
     function addSimulatedTablet() {
       const nextId = tablets.length > 0 ? Math.max(...tablets.map(t => t.id)) + 1 : 1;
@@ -785,46 +924,42 @@
       tablets.push(newTab);
       generateDemoPattern(nextId);
       renderTablets();
-      showToast(`Tablet #${numStr} agregada con transmisión activa`);
+      showToast(`Tablet #${numStr} conectada`);
     }
 
-    // Generador de simulación visual para las tarjetas del PC
     function generateDemoPattern(tabletId) {
       const c = document.createElement('canvas');
-      c.width = 320;
-      c.height = 200;
+      c.width = 360;
+      c.height = 225;
       const ctx = c.getContext('2d');
 
       const drawLoop = () => {
         ctx.fillStyle = '#090d16';
         ctx.fillRect(0, 0, c.width, c.height);
 
-        // Barra superior de app simulada
         ctx.fillStyle = '#1e293b';
         ctx.fillRect(0, 0, c.width, 24);
         ctx.fillStyle = '#38bdf8';
-        ctx.font = '10px Inter';
-        ctx.fillText(`Google Classroom - Alumno #${tabletId}`, 10, 16);
+        ctx.font = 'bold 11px Inter';
+        ctx.fillText(`Google Classroom • Alumno #${tabletId}`, 10, 16);
 
-        // Elementos visuales dinámicos
         const t = Date.now() * 0.002;
         ctx.fillStyle = '#334155';
-        ctx.fillRect(16, 40, 180, 14);
-        ctx.fillRect(16, 62, 280, 8);
-        ctx.fillRect(16, 76, 250, 8);
+        ctx.fillRect(16, 42, 190, 14);
+        ctx.fillRect(16, 66, 290, 8);
+        ctx.fillRect(16, 80, 240, 8);
 
-        // Gráfico de actividad
         ctx.strokeStyle = '#06b6d4';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2.5;
         ctx.beginPath();
-        for (let x = 16; x < 280; x += 10) {
-          const y = 140 + Math.sin(t + x * 0.05) * 20;
+        for (let x = 16; x < 320; x += 10) {
+          const y = 150 + Math.sin(t + x * 0.05) * 22;
           if (x === 16) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
         }
         ctx.stroke();
 
-        remoteCanvasFrames[tabletId] = c.toDataURL('image/jpeg', 0.5);
+        remoteCanvasFrames[tabletId] = c.toDataURL('image/jpeg', 0.45);
         updateCardMirror(tabletId);
       };
 
@@ -836,22 +971,13 @@
       if (!grid) return;
       grid.innerHTML = '';
 
-      const search = (document.getElementById('search-filter')?.value || '').toLowerCase();
-      const statusFilter = document.getElementById('status-filter')?.value || 'all';
-
-      const filtered = tablets.filter(t => {
-        const matchesSearch = t.name.toLowerCase().includes(search) || t.email.toLowerCase().includes(search);
-        const matchesStatus = statusFilter === 'all' || t.status === statusFilter;
-        return matchesSearch && matchesStatus;
-      });
-
-      if (filtered.length === 0) {
+      if (tablets.length === 0) {
         grid.innerHTML = `
           <div class="col-span-full py-16 px-6 text-center text-slate-400 bg-slate-900/60 rounded-3xl border border-slate-800 flex flex-col items-center justify-center">
             <div class="w-16 h-16 rounded-2xl bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-2xl text-slate-500 mb-3 shadow-inner">
               <i class="fa-solid fa-tablet-screen-button"></i>
             </div>
-            <h3 class="text-base font-bold text-white mb-1">No hay tablets conectadas en este momento</h3>
+            <h3 class="text-base font-bold text-white mb-1">Esperando conexión de Tablets</h3>
             <p class="text-xs text-slate-400 max-w-md mb-5 leading-relaxed">
               Las pantallas aparecerán aquí cuando una tablet escanee su código QR o cuando agregues una tablet de prueba.
             </p>
@@ -868,7 +994,7 @@
           </div>
         `;
       } else {
-        filtered.forEach(tab => {
+        tablets.forEach(tab => {
           const card = document.createElement('div');
           let borderClass = 'border-slate-800';
           let statusBadge = '';
@@ -910,10 +1036,10 @@
               <img id="screen-img-${tab.id}" src="${remoteCanvasFrames[tab.id] || ''}" class="${remoteCanvasFrames[tab.id] ? '' : 'hidden'} w-full h-full object-contain">
               <div id="screen-placeholder-${tab.id}" class="${remoteCanvasFrames[tab.id] ? 'hidden' : 'flex'} w-full h-full flex-col items-center justify-center p-3 text-center bg-slate-950/90 text-slate-500">
                 <div class="w-8 h-8 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 mb-1.5 group-hover:scale-110 transition-transform">
-                  <i class="fa-solid fa-display text-sm"></i>
+                  <i class="fa-solid fa-video text-sm"></i>
                 </div>
-                <span class="text-[10px] text-slate-400 font-medium">Sin transmisión activa</span>
-                <span class="text-[9px] text-cyan-400 mt-0.5 underline">Escanear QR para transmitir</span>
+                <span class="text-[10px] text-slate-400 font-medium">Esperando transmisión</span>
+                <span class="text-[9px] text-cyan-400 mt-0.5 underline">Transmitir Pantalla o Cámara</span>
               </div>
               <div class="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                 <span class="px-2.5 py-1 rounded-lg bg-cyan-600 text-white font-bold text-[10px] shadow-lg flex items-center gap-1">
@@ -968,17 +1094,11 @@
       }
 
       if (currentInspectId === tabletId) {
-        const inspectCanvas = document.getElementById('inspect-canvas-player');
+        const inspectImg = document.getElementById('inspect-img-player');
         const inspectNoVideo = document.getElementById('inspect-no-video');
-        if (inspectCanvas && remoteCanvasFrames[tabletId]) {
-          const cImg = new Image();
-          cImg.onload = () => {
-            inspectCanvas.width = cImg.width;
-            inspectCanvas.height = cImg.height;
-            inspectCanvas.getContext('2d').drawImage(cImg, 0, 0);
-          };
-          cImg.src = remoteCanvasFrames[tabletId];
-          inspectCanvas.classList.remove('hidden');
+        if (inspectImg && remoteCanvasFrames[tabletId]) {
+          inspectImg.src = remoteCanvasFrames[tabletId];
+          inspectImg.classList.remove('hidden');
           if (inspectNoVideo) inspectNoVideo.classList.add('hidden');
         }
       }
@@ -1045,9 +1165,6 @@
       return selected.length > 0 ? selected : tablets;
     }
 
-    /* ============================================================
-       4. ACCIONES MASIVAS E INDIVIDUALES
-       ============================================================ */
     function bulkAddTime(minutes) {
       const targets = getTargetTablets();
       const targetIds = targets.map(t => t.id);
@@ -1136,21 +1253,15 @@
       document.getElementById('inspect-tablet-name').textContent = tab.name;
       document.getElementById('inspect-tablet-email').textContent = tab.email;
 
-      const player = document.getElementById('inspect-canvas-player');
+      const inspectImg = document.getElementById('inspect-img-player');
       const noVideoMsg = document.getElementById('inspect-no-video');
 
       if (remoteCanvasFrames[id]) {
-        const cImg = new Image();
-        cImg.onload = () => {
-          player.width = cImg.width;
-          player.height = cImg.height;
-          player.getContext('2d').drawImage(cImg, 0, 0);
-        };
-        cImg.src = remoteCanvasFrames[id];
-        player.classList.remove('hidden');
+        inspectImg.src = remoteCanvasFrames[id];
+        inspectImg.classList.remove('hidden');
         noVideoMsg.classList.add('hidden');
       } else {
-        player.classList.add('hidden');
+        inspectImg.classList.add('hidden');
         noVideoMsg.classList.remove('hidden');
       }
 
@@ -1217,7 +1328,7 @@
       document.getElementById('pair-tablet-email').textContent = email;
 
       const currentUrl = window.location.href.split('?')[0];
-      const targetUrl = `${currentUrl}?role=tablet&id=${id}&email=${encodeURIComponent(email)}`;
+      const targetUrl = `${currentUrl}?role=tablet&id=${id}&email=${encodeURIComponent(email)}&pin=${ROOM_PIN}`;
       document.getElementById('pair-link-input').value = targetUrl;
 
       const qrBox = document.getElementById('pair-qrcode-box');
@@ -1251,23 +1362,6 @@
       document.execCommand('copy');
       document.body.removeChild(el);
       showToast('Enlace copiado al portapapeles');
-    }
-
-    function toggleGridDensity() {
-      isVeyonDenseGrid = !isVeyonDenseGrid;
-      const grid = document.getElementById('tablets-grid');
-      const text = document.getElementById('grid-toggle-text');
-      if (isVeyonDenseGrid) {
-        grid.className = 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3';
-        text.textContent = 'Mosaico Amplio';
-      } else {
-        grid.className = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4';
-        text.textContent = 'Mosaico Compacto';
-      }
-    }
-
-    function openConfigHelpModal() {
-      document.getElementById('modal-config-help').classList.remove('hidden');
     }
 
     function openLaunchUrlModal() {
@@ -1313,10 +1407,6 @@
       if (modal) modal.classList.add('hidden');
     }
 
-    function applyFilters() {
-      renderTablets();
-    }
-
     function formatTime(seconds) {
       if (seconds >= 99999) return 'ILIMITADO';
       const m = Math.floor(seconds / 60);
@@ -1333,108 +1423,6 @@
         toast.classList.add('translate-y-24', 'opacity-0');
       }, 3000);
     }
-
-    /* ============================================================
-       6. COMUNICACIÓN EN TIEMPO REAL (BROADCAST + STORAGE EVENT)
-       ============================================================ */
-    function broadcastMessage(msgObj) {
-      msgObj.timestamp = Date.now();
-      if (syncChannel) {
-        syncChannel.postMessage(msgObj);
-      }
-      try {
-        localStorage.setItem('tabcontrol_last_msg', JSON.stringify(msgObj));
-      } catch (e) {}
-    }
-
-    function handleIncomingMessage(msg) {
-      if (!msg || !msg.type) return;
-
-      if (msg.type === 'TABLET_JOINED') {
-        const p = msg.payload;
-        let tab = tablets.find(t => t.id === p.id);
-        if (!tab) {
-          tab = {
-            id: p.id,
-            name: p.name,
-            email: p.email,
-            status: 'active',
-            remainingSeconds: 1800,
-            totalSeconds: 1800,
-            battery: p.battery || 85,
-            selected: false,
-            streaming: true
-          };
-          tablets.push(tab);
-          generateDemoPattern(p.id);
-          renderTablets();
-          showToast(`¡${p.name} se ha conectado!`);
-        }
-      } else if (msg.type === 'TABLET_FRAME') {
-        const { id, frame } = msg.payload;
-        remoteCanvasFrames[id] = frame;
-        updateCardMirror(id);
-      } else if (msg.type === 'BULK_TIME') {
-        const { minutes, targetIds } = msg.payload;
-        tablets.forEach(t => {
-          if (!targetIds || targetIds.includes(t.id)) {
-            if (minutes === -1) {
-              t.remainingSeconds = 99999;
-              t.totalSeconds = 99999;
-            } else {
-              t.remainingSeconds += (minutes * 60);
-              t.totalSeconds += (minutes * 60);
-            }
-            t.status = 'active';
-          }
-        });
-        renderTablets();
-        updateTabletClientUI();
-      } else if (msg.type === 'BULK_LOCK') {
-        const { locked, targetIds } = msg.payload;
-        tablets.forEach(t => {
-          if (!targetIds || targetIds.includes(t.id)) {
-            t.status = locked ? 'locked' : (t.remainingSeconds > 0 ? 'active' : 'free');
-          }
-        });
-        renderTablets();
-        updateTabletClientUI();
-      } else if (msg.type === 'FLASH_MESSAGE') {
-        globalFlashMessage = msg.payload.message;
-        updateTabletClientUI();
-        setTimeout(() => {
-          globalFlashMessage = '';
-          updateTabletClientUI();
-        }, 15000);
-      } else if (msg.type === 'LAUNCH_URL') {
-        const { url, targetIds } = msg.payload;
-        if (!targetIds || targetIds.includes(clientTabletId)) {
-          if (currentRole === 'tablet') {
-            window.open(url, '_blank');
-          }
-        }
-      } else if (msg.type === 'RENAME_TABLET') {
-        const { id, name } = msg.payload;
-        const tab = tablets.find(t => t.id === id);
-        if (tab) {
-          tab.name = name;
-          renderTablets();
-        }
-        if (clientTabletId === id) {
-          const el = document.getElementById('tab-client-name');
-          if (el) el.textContent = name;
-        }
-      }
-    }
-
-    if (syncChannel) {
-      syncChannel.onmessage = (event) => handleIncomingMessage(event.data);
-    }
-    window.addEventListener('storage', (e) => {
-      if (e.key === 'tabcontrol_last_msg' && e.newValue) {
-        try { handleIncomingMessage(JSON.parse(e.newValue)); } catch (err) {}
-      }
-    });
 
     // Temporizador regresivo por segundo
     setInterval(() => {
@@ -1458,12 +1446,12 @@
     }, 1000);
 
     /* ============================================================
-       7. CARGA INICIAL
+       6. CARGA INICIAL
        ============================================================ */
     window.onload = function () {
+      initMessagingNetwork();
       checkInitialRole();
-      // Agregar 2 tablets demostrativas de inicio para que la vista previa sea inmediata
-      addSimulatedTablet();
+      // Agregar 1 tablet demo para probar de inmediato en PC
       addSimulatedTablet();
     };
   </script>
