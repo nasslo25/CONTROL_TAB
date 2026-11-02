@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VeyonWeb Fleet Manager - Control Central de Tablets</title>
+  <title>VeyonCam Fleet - Supervisión Remota de Cámaras Frontal/Trasera</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <!-- QRCode.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <!-- MQTT Paho WebSocket client for robust multi-device cross-network signaling -->
+  <!-- MQTT Paho WebSocket client -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
@@ -23,31 +23,19 @@
     .font-mono-tech {
       font-family: 'JetBrains Mono', monospace;
     }
-    .screen-video-container {
+    .cam-feed-container {
       background: #000000;
       position: relative;
       aspect-ratio: 16 / 10;
       overflow: hidden;
       border-radius: 0.75rem;
     }
-    .screen-video-container video,
-    .screen-video-container canvas,
-    .screen-video-container img {
+    .cam-feed-container video,
+    .cam-feed-container img {
       width: 100%;
       height: 100%;
-      object-fit: contain;
+      object-fit: cover;
       display: block;
-    }
-    ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-    ::-webkit-scrollbar-track {
-      background: #0f172a;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: #334155;
-      border-radius: 9999px;
     }
   </style>
 </head>
@@ -57,18 +45,18 @@
   <header class="bg-slate-900/95 border-b border-slate-800 px-3 sm:px-6 py-2.5 sticky top-0 z-40 backdrop-blur flex flex-wrap items-center justify-between gap-3 shadow-xl">
     <div class="flex items-center gap-3">
       <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/25">
-        <i class="fa-solid fa-network-wired text-lg sm:text-xl"></i>
+        <i class="fa-solid fa-camera-rotate text-lg sm:text-xl"></i>
       </div>
       <div>
         <div class="flex items-center gap-2">
           <h1 class="text-base sm:text-lg font-extrabold tracking-tight text-white flex items-center gap-1.5">
-            Veyon<span class="text-cyan-400">Web</span>
+            Veyon<span class="text-cyan-400">Cam</span>
           </h1>
           <span id="cloud-signal-badge" class="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700/50 text-[10px] font-mono-tech uppercase font-bold tracking-wider flex items-center gap-1">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> CLOUD LIVE
           </span>
         </div>
-        <p class="text-[11px] text-slate-400 hidden sm:block">Control Centralizado y Video Transmisión Directa</p>
+        <p class="text-[11px] text-slate-400 hidden sm:block">Supervisión en Tiempo Real: Cámaras Frontal y Trasera</p>
       </div>
     </div>
 
@@ -79,8 +67,8 @@
         <span>Panel PC (Profesor)</span>
       </button>
       <button id="view-mode-tab-btn" onclick="switchMainRole('tablet')" class="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white font-medium transition flex items-center gap-1.5">
-        <i class="fa-solid fa-mobile-screen"></i>
-        <span>Modo Tablet (Alumno)</span>
+        <i class="fa-solid fa-camera"></i>
+        <span>Modo Tablet (Cámara)</span>
       </button>
     </div>
 
@@ -94,12 +82,12 @@
 
       <button onclick="addSimulatedTablet()" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 transition active:scale-95 shadow">
         <i class="fa-solid fa-plus"></i>
-        <span>+ Demo Tablet</span>
+        <span>+ Demo Cámara</span>
       </button>
 
       <button onclick="openPairModalNew()" class="px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs flex items-center gap-1.5 transition active:scale-95 shadow">
         <i class="fa-solid fa-qrcode"></i>
-        <span>Vincular Tablet (QR)</span>
+        <span>Vincular Cámara (QR)</span>
       </button>
     </div>
   </header>
@@ -214,7 +202,7 @@
   <!-- ============================================== -->
   <!-- VISTA 2: MODO TABLET (ALUMNO / CLIENTE)        -->
   <!-- ============================================== -->
-  <section id="tablet-view-container" class="flex-1 flex flex-col p-4 sm:p-6 hidden max-w-4xl mx-auto w-full">
+  <section id="tablet-view-container" class="flex-1 flex flex-col p-4 sm:p-6 hidden max-w-2xl mx-auto w-full">
     <!-- Header Tablet -->
     <div class="flex items-center justify-between pb-3 border-b border-slate-800 text-xs font-mono-tech mb-4">
       <div class="flex items-center gap-2">
@@ -222,66 +210,54 @@
         <span id="tab-client-name" class="font-bold text-white text-sm">Tablet #01</span>
       </div>
       <div class="flex items-center gap-3 text-slate-400">
-        <span id="tab-client-conn-status" class="flex items-center gap-1.5 text-emerald-400">
-          <i class="fa-solid fa-circle-check"></i> Enlazada (Aula PIN: <span id="client-room-pin">AULA77</span>)
+        <span id="tab-client-conn-status" class="flex items-center gap-1.5 text-emerald-400 font-semibold">
+          <i class="fa-solid fa-circle-check"></i> Enlazada
         </span>
-        <span id="tab-client-battery"><i class="fa-solid fa-battery-three-quarters text-emerald-400"></i> 90%</span>
+        <span id="tab-client-cam-indicator" class="px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800 text-[10px] uppercase font-bold">
+          FRONTAL
+        </span>
       </div>
     </div>
 
     <!-- Contenido Activo / Desbloqueado -->
     <div id="tab-client-active-box" class="flex-1 flex flex-col items-center justify-center text-center">
-      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-8 max-w-lg w-full shadow-2xl">
-        <div class="w-16 h-16 rounded-3xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center text-2xl mx-auto mb-4 shadow-xl">
-          <i class="fa-solid fa-tower-broadcast"></i>
-        </div>
-        <h2 class="text-xl font-black text-white">Transmisión de Video en Vivo</h2>
-        <p class="text-xs text-slate-400 mt-1 mb-5 leading-relaxed">
-          Selecciona una forma de transmitir tu actividad en tiempo real hacia el monitor del profesor:
-        </p>
-
-        <!-- Botones de Transmisión Directa -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-4">
-          <button id="btn-stream-screen" onclick="startNativeScreenShare()" class="py-3 px-3 rounded-xl bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-cyan-600/30 flex items-center justify-center gap-2 transition active:scale-95">
-            <i class="fa-solid fa-display"></i>
-            <span id="stream-btn-text">Transmitir Pantalla</span>
-          </button>
-          
-          <button id="btn-stream-camera" onclick="startCameraShare()" class="py-3 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 transition active:scale-95">
-            <i class="fa-solid fa-camera"></i>
-            <span id="camera-btn-text">Transmitir Cámara</span>
-          </button>
-        </div>
-
-        <button onclick="toggleTabletDrawingBoard()" class="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs border border-slate-700 flex items-center justify-center gap-2 transition mb-4">
-          <i class="fa-solid fa-pen-nib text-cyan-400"></i>
-          <span>Abrir Cuaderno / Pizarra Táctil en Vivo</span>
-        </button>
-
-        <!-- Preview local de video si está activo -->
-        <div id="local-video-preview-wrapper" class="hidden mb-4 rounded-xl overflow-hidden border border-cyan-500/50 bg-black aspect-video relative">
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-6 w-full shadow-2xl flex flex-col gap-4">
+        
+        <!-- Visor de Cámara Local con Control de Giro -->
+        <div class="relative w-full aspect-video bg-black rounded-2xl overflow-hidden border-2 border-cyan-500/40 shadow-inner flex items-center justify-center">
           <video id="tablet-local-video" autoplay playsinline muted class="w-full h-full object-cover"></video>
-          <div class="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/70 text-emerald-400 text-[10px] font-mono-tech flex items-center gap-1">
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> EN VIVO HACIA EL PC
+          
+          <div class="absolute top-2 left-2 px-2.5 py-1 rounded-lg bg-black/75 backdrop-blur-sm text-emerald-400 text-[10px] font-mono-tech flex items-center gap-1.5 border border-emerald-500/30">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span> TRANSMITIENDO AL PC
+          </div>
+
+          <div class="absolute bottom-2 right-2 flex items-center gap-1.5">
+            <button onclick="toggleTabletFacingMode()" class="px-3 py-1.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-white border border-slate-700 text-xs font-bold shadow-lg flex items-center gap-1.5 backdrop-blur-sm active:scale-95 transition">
+              <i class="fa-solid fa-camera-rotate text-cyan-400"></i>
+              <span id="tablet-facing-text">Girar a Trasera</span>
+            </button>
           </div>
         </div>
 
-        <!-- Pizarra interactiva del alumno -->
-        <div id="tablet-draw-area" class="mb-4 bg-slate-950 p-2 rounded-2xl border border-slate-800">
-          <div class="flex justify-between items-center text-[11px] text-slate-400 mb-2 px-1">
-            <span>Dibuja aquí (se refleja segundo a segundo en el PC):</span>
-            <button onclick="clearTabletBoard()" class="text-rose-400 hover:underline">Borrar</button>
-          </div>
-          <canvas id="tabletBoardCanvas" width="360" height="200" class="w-full bg-slate-900 rounded-xl cursor-crosshair border border-slate-800"></canvas>
+        <!-- Botones de Control de la Cámara -->
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <button onclick="setTabletFacing('user')" id="btn-tab-user" class="py-2.5 px-3 rounded-xl bg-cyan-600 text-white font-bold flex items-center justify-center gap-2 shadow transition">
+            <i class="fa-solid fa-user"></i>
+            <span>Cámara Frontal</span>
+          </button>
+          <button onclick="setTabletFacing('environment')" id="btn-tab-env" class="py-2.5 px-3 rounded-xl bg-slate-800 text-slate-300 hover:text-white font-bold flex items-center justify-center gap-2 border border-slate-700 transition">
+            <i class="fa-solid fa-mountain-sun"></i>
+            <span>Cámara Trasera</span>
+          </button>
         </div>
 
-        <!-- Tiempo de sesión -->
-        <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 text-left">
-          <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
-            <span>Tiempo restante de uso:</span>
-            <span id="tab-client-timer" class="font-mono-tech text-xl font-bold text-cyan-400">30:00</span>
+        <!-- Tiempo de sesión restante -->
+        <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-3.5 text-left flex items-center justify-between">
+          <div>
+            <span class="text-[11px] text-slate-400 block">Tiempo asignado por el profesor:</span>
+            <span id="tab-client-timer" class="font-mono-tech text-lg font-bold text-cyan-400">30:00</span>
           </div>
-          <p class="text-[11px] text-slate-500">Cuando el tiempo finalice, la tablet se bloqueará automáticamente.</p>
+          <span class="text-[11px] text-slate-500 max-w-[160px] text-right">La cámara se transmite de forma continua y segura.</span>
         </div>
       </div>
     </div>
@@ -291,9 +267,9 @@
       <div class="w-24 h-24 rounded-3xl bg-rose-500/20 border-2 border-rose-500 text-rose-400 flex items-center justify-center text-4xl mb-4 animate-bounce">
         <i class="fa-solid fa-lock"></i>
       </div>
-      <h2 class="text-3xl font-black text-rose-300">Tablet Bloqueada</h2>
-      <p class="text-sm text-slate-300 mt-2 max-w-md leading-relaxed">
-        El tiempo de sesión ha expirado o el profesor ha pausado las actividades en este equipo. Por favor, atiende las instrucciones en la sala.
+      <h2 class="text-2xl sm:text-3xl font-black text-rose-300">Cámara Pausada / Bloqueada</h2>
+      <p class="text-xs sm:text-sm text-slate-300 mt-2 max-w-md leading-relaxed">
+        El profesor ha pausado la sesión de este dispositivo o el tiempo ha expirado.
       </p>
     </div>
 
@@ -478,49 +454,43 @@
     const ROOM_PIN = 'AULA77';
     const MQTT_BROKER = 'broker.emqx.io';
     const MQTT_PORT = 8084; // WebSocket SSL
-    const MQTT_TOPIC_PREFIX = `veyon_aula_${ROOM_PIN}/`;
+    const MQTT_TOPIC_PREFIX = `veyon_cam_${ROOM_PIN}/`;
 
     // Bus de Comunicación Local y Remoto
-    const syncChannel = ('BroadcastChannel' in window) ? new BroadcastChannel('veyon_local_bus') : null;
+    const syncChannel = ('BroadcastChannel' in window) ? new BroadcastChannel('veyon_cam_bus') : null;
     let mqttClient = null;
     let isCloudConnected = false;
 
     // Estado Global
     let currentRole = 'pc'; // 'pc' o 'tablet'
     let tablets = [];
-    const remoteCanvasFrames = {}; // Frames JPEG recibidos por cada tablet
+    const remoteCamFrames = {}; // Frames JPEG recibidos por cada tablet
     let currentInspectId = null;
     let globalFlashMessage = '';
     let clientTabletId = 1;
     let activeMediaStream = null;
     let streamInterval = null;
-
-    // Pizarra Tablet
-    let tabletBoardCanvas = null;
-    let tabletBoardCtx = null;
-    let isDrawing = false;
+    let currentFacingMode = 'user'; // 'user' (frontal) o 'environment' (trasera)
 
     /* ============================================================
        1. SISTEMA DE MENSAJERÍA HÍBRIDO (LOCAL + CLOUD MQTT)
        ============================================================ */
     function initMessagingNetwork() {
-      // 1. Canal local BroadcastChannel
       if (syncChannel) {
         syncChannel.onmessage = (event) => handleIncomingMessage(event.data);
       }
       window.addEventListener('storage', (e) => {
-        if (e.key === 'veyon_last_msg' && e.newValue) {
+        if (e.key === 'veyon_cam_last_msg' && e.newValue) {
           try { handleIncomingMessage(JSON.parse(e.newValue)); } catch (err) {}
         }
       });
 
-      // 2. Canal Cloud WebSocket MQTT público y seguro
       try {
         if (typeof Paho !== 'undefined' && Paho.MQTT) {
-          const clientId = `veyon_${Math.random().toString(16).substr(2, 8)}`;
+          const clientId = `veyoncam_${Math.random().toString(16).substr(2, 8)}`;
           mqttClient = new Paho.MQTT.Client(MQTT_BROKER, MQTT_PORT, clientId);
 
-          mqttClient.onConnectionLost = (responseObject) => {
+          mqttClient.onConnectionLost = () => {
             isCloudConnected = false;
             updateCloudIndicator(false);
             setTimeout(initMessagingNetwork, 3000);
@@ -540,12 +510,11 @@
               isCloudConnected = true;
               updateCloudIndicator(true);
               mqttClient.subscribe(`${MQTT_TOPIC_PREFIX}#`);
-              // Si es tablet, anuncia conexión
               if (currentRole === 'tablet') {
                 sendTabletHeartbeat();
               }
             },
-            onFailure: (err) => {
+            onFailure: () => {
               isCloudConnected = false;
               updateCloudIndicator(false);
             }
@@ -572,15 +541,13 @@
       msgObj.timestamp = Date.now();
       const str = JSON.stringify(msgObj);
 
-      // Enviar por local bus
       if (syncChannel) {
         syncChannel.postMessage(msgObj);
       }
       try {
-        localStorage.setItem('veyon_last_msg', str);
+        localStorage.setItem('veyon_cam_last_msg', str);
       } catch (e) {}
 
-      // Enviar por cloud MQTT
       if (mqttClient && mqttClient.isConnected()) {
         try {
           const message = new Paho.MQTT.Message(str);
@@ -602,6 +569,7 @@
             name: p.name,
             email: p.email,
             status: 'active',
+            facingMode: p.facingMode || 'user',
             remainingSeconds: p.remainingSeconds || 1800,
             totalSeconds: 1800,
             battery: p.battery || 85,
@@ -610,12 +578,23 @@
           };
           tablets.push(tab);
           renderTablets();
-          showToast(`¡${p.name} se ha conectado!`);
+          showToast(`¡Cámara de ${p.name} enlazada!`);
+        } else {
+          tab.facingMode = p.facingMode || tab.facingMode;
+          renderTablets();
         }
       } else if (msg.type === 'TABLET_FRAME') {
-        const { id, frame } = msg.payload;
-        remoteCanvasFrames[id] = frame;
+        const { id, frame, facingMode } = msg.payload;
+        remoteCamFrames[id] = frame;
+        const tab = tablets.find(t => t.id === id);
+        if (tab && facingMode) tab.facingMode = facingMode;
         updateCardMirror(id);
+      } else if (msg.type === 'SWITCH_CAMERA_REMOTE') {
+        const { targetId, facingMode } = msg.payload;
+        if (currentRole === 'tablet' && clientTabletId === targetId) {
+          setTabletFacing(facingMode);
+          showToast(`El profesor cambió a cámara ${facingMode === 'user' ? 'Frontal' : 'Trasera'}`);
+        }
       } else if (msg.type === 'BULK_TIME') {
         const { minutes, targetIds } = msg.payload;
         tablets.forEach(t => {
@@ -648,13 +627,6 @@
           globalFlashMessage = '';
           updateTabletClientUI();
         }, 15000);
-      } else if (msg.type === 'LAUNCH_URL') {
-        const { url, targetIds } = msg.payload;
-        if (!targetIds || targetIds.includes(clientTabletId)) {
-          if (currentRole === 'tablet') {
-            window.open(url, '_blank');
-          }
-        }
       } else if (msg.type === 'RENAME_TABLET') {
         const { id, name } = msg.payload;
         const tab = tablets.find(t => t.id === id);
@@ -706,25 +678,24 @@
         pcActions.classList.add('hidden');
         tabBtn.className = 'px-3 py-1.5 rounded-lg bg-cyan-600 text-white font-bold transition flex items-center gap-1.5 shadow';
         pcBtn.className = 'px-3 py-1.5 rounded-lg text-slate-400 hover:text-white font-medium transition flex items-center gap-1.5';
-        initTabletClientMode();
+        initTabletCameraMode();
       }
     }
 
     /* ============================================================
-       3. MODO TABLET (CAPTURA PANTALLA / CÁMARA / PIZARRA)
+       3. MODO TABLET (CÁMARA FRONTAL Y TRASERA getUserMedia)
        ============================================================ */
-    function initTabletClientMode() {
+    async function initTabletCameraMode() {
       const nameEl = document.getElementById('tab-client-name');
       const numStr = String(clientTabletId).padStart(2, '0');
       nameEl.textContent = `Tablet #${numStr}`;
 
-      initTabletDrawingCanvas();
+      await startCameraStream(currentFacingMode);
       sendTabletHeartbeat();
       updateTabletClientUI();
 
-      // Transmisión de fotogramas periódica
       if (!streamInterval) {
-        streamInterval = setInterval(captureAndSendFrame, 350); // ~3 FPS para estabilidad en redes móviles
+        streamInterval = setInterval(captureAndSendCamFrame, 250); // 4 FPS fluido
       }
     }
 
@@ -736,135 +707,91 @@
           id: clientTabletId,
           name: `Tablet #${numStr}`,
           email: `tablet${numStr}@aula.edu`,
+          facingMode: currentFacingMode,
           battery: 90
         }
       });
     }
 
-    function initTabletDrawingCanvas() {
-      tabletBoardCanvas = document.getElementById('tabletBoardCanvas');
-      if (!tabletBoardCanvas) return;
-      tabletBoardCtx = tabletBoardCanvas.getContext('2d');
-
-      tabletBoardCtx.fillStyle = '#0f172a';
-      tabletBoardCtx.fillRect(0, 0, tabletBoardCanvas.width, tabletBoardCanvas.height);
-
-      const startDraw = (e) => { isDrawing = true; draw(e); };
-      const stopDraw = () => { isDrawing = false; tabletBoardCtx.beginPath(); captureAndSendFrame(); };
-      const draw = (e) => {
-        if (!isDrawing) return;
-        const rect = tabletBoardCanvas.getBoundingClientRect();
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        const x = (clientX - rect.left) * (tabletBoardCanvas.width / rect.width);
-        const y = (clientY - rect.top) * (tabletBoardCanvas.height / rect.height);
-
-        tabletBoardCtx.lineWidth = 3;
-        tabletBoardCtx.lineCap = 'round';
-        tabletBoardCtx.strokeStyle = '#38bdf8';
-        tabletBoardCtx.lineTo(x, y);
-        tabletBoardCtx.stroke();
-        tabletBoardCtx.beginPath();
-        tabletBoardCtx.moveTo(x, y);
-      };
-
-      tabletBoardCanvas.onmousedown = startDraw;
-      tabletBoardCanvas.onmouseup = stopDraw;
-      tabletBoardCanvas.onmousemove = draw;
-      tabletBoardCanvas.ontouchstart = (e) => { e.preventDefault(); startDraw(e); };
-      tabletBoardCanvas.ontouchend = (e) => { e.preventDefault(); stopDraw(e); };
-      tabletBoardCanvas.ontouchmove = (e) => { e.preventDefault(); draw(e); };
-    }
-
-    function clearTabletBoard() {
-      if (!tabletBoardCtx || !tabletBoardCanvas) return;
-      tabletBoardCtx.fillStyle = '#0f172a';
-      tabletBoardCtx.fillRect(0, 0, tabletBoardCanvas.width, tabletBoardCanvas.height);
-      captureAndSendFrame();
-    }
-
-    function toggleTabletDrawingBoard() {
-      const area = document.getElementById('tablet-draw-area');
-      area.classList.toggle('hidden');
-    }
-
-    // A. Transmisión nativa de pantalla
-    async function startNativeScreenShare() {
-      const btn = document.getElementById('btn-stream-screen');
-      const btnText = document.getElementById('stream-btn-text');
-
-      if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
-        try {
-          const stream = await navigator.mediaDevices.getDisplayMedia({
-            video: { frameRate: 15 },
-            audio: false
-          });
-          attachLocalStream(stream);
-          btnText.textContent = 'Transmitiendo Pantalla';
-          btn.className = 'py-3 px-3 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow-lg flex items-center justify-center gap-2 transition';
-          showToast('Pantalla compartida con el profesor');
-          return;
-        } catch (err) {
-          console.warn('getDisplayMedia denegado o no admitido:', err);
-        }
+    async function startCameraStream(facing) {
+      if (activeMediaStream) {
+        activeMediaStream.getTracks().forEach(t => t.stop());
       }
-      showToast('Captura completa restringida en este navegador. Usa Cámara o Pizarra.');
+
+      currentFacingMode = facing;
+      updateTabletFacingUI();
+
+      try {
+        const constraints = {
+          video: {
+            facingMode: { ideal: facing },
+            width: { ideal: 640 },
+            height: { ideal: 480 }
+          },
+          audio: false
+        };
+
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        activeMediaStream = stream;
+        const videoEl = document.getElementById('tablet-local-video');
+        videoEl.srcObject = stream;
+        showToast(`Cámara ${facing === 'user' ? 'Frontal' : 'Trasera'} iniciada`);
+      } catch (err) {
+        console.warn('Error accediendo a cámara:', err);
+        showToast('No se pudo acceder a la cámara. Revisa permisos.');
+      }
     }
 
-    // B. Transmisión nativa de cámara (Android e iOS 100% compatible)
-    async function startCameraShare() {
-      const btn = document.getElementById('btn-stream-camera');
-      const btnText = document.getElementById('camera-btn-text');
+    function toggleTabletFacingMode() {
+      const nextFacing = currentFacingMode === 'user' ? 'environment' : 'user';
+      startCameraStream(nextFacing);
+    }
 
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
-            audio: false
-          });
-          attachLocalStream(stream);
-          btnText.textContent = 'Transmitiendo Cámara';
-          btn.className = 'py-3 px-3 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow-lg flex items-center justify-center gap-2 transition';
-          showToast('Cámara compartida con el profesor');
-          return;
-        } catch (err) {
-          showToast('Permiso de cámara no concedido');
+    function setTabletFacing(facing) {
+      if (currentFacingMode !== facing) {
+        startCameraStream(facing);
+      }
+    }
+
+    function updateTabletFacingUI() {
+      const isUser = (currentFacingMode === 'user');
+      const indicator = document.getElementById('tab-client-cam-indicator');
+      const toggleText = document.getElementById('tablet-facing-text');
+      const btnUser = document.getElementById('btn-tab-user');
+      const btnEnv = document.getElementById('btn-tab-env');
+
+      if (indicator) indicator.textContent = isUser ? 'FRONTAL' : 'TRASERA';
+      if (toggleText) toggleText.textContent = isUser ? 'Girar a Trasera' : 'Girar a Frontal';
+
+      if (btnUser && btnEnv) {
+        if (isUser) {
+          btnUser.className = 'py-2.5 px-3 rounded-xl bg-cyan-600 text-white font-bold flex items-center justify-center gap-2 shadow transition';
+          btnEnv.className = 'py-2.5 px-3 rounded-xl bg-slate-800 text-slate-300 hover:text-white font-bold flex items-center justify-center gap-2 border border-slate-700 transition';
+        } else {
+          btnEnv.className = 'py-2.5 px-3 rounded-xl bg-cyan-600 text-white font-bold flex items-center justify-center gap-2 shadow transition';
+          btnUser.className = 'py-2.5 px-3 rounded-xl bg-slate-800 text-slate-300 hover:text-white font-bold flex items-center justify-center gap-2 border border-slate-700 transition';
         }
       }
     }
 
-    function attachLocalStream(stream) {
-      activeMediaStream = stream;
-      const previewWrapper = document.getElementById('local-video-preview-wrapper');
-      const videoEl = document.getElementById('tablet-local-video');
-      videoEl.srcObject = stream;
-      previewWrapper.classList.remove('hidden');
-    }
-
-    // C. Capturador continuo de fotogramas (Canvas / Video -> JPEG)
-    function captureAndSendFrame() {
+    function captureAndSendCamFrame() {
       if (currentRole !== 'tablet') return;
 
       const videoEl = document.getElementById('tablet-local-video');
-      let dataUrl = null;
-
       if (activeMediaStream && videoEl && videoEl.videoWidth > 0) {
         const offCanvas = document.createElement('canvas');
         offCanvas.width = 360;
         offCanvas.height = 225;
         const offCtx = offCanvas.getContext('2d');
         offCtx.drawImage(videoEl, 0, 0, offCanvas.width, offCanvas.height);
-        dataUrl = offCanvas.toDataURL('image/jpeg', 0.45);
-      } else if (tabletBoardCanvas) {
-        dataUrl = tabletBoardCanvas.toDataURL('image/jpeg', 0.45);
-      }
+        const dataUrl = offCanvas.toDataURL('image/jpeg', 0.5);
 
-      if (dataUrl) {
         broadcastMessage({
           type: 'TABLET_FRAME',
           payload: {
             id: clientTabletId,
-            frame: dataUrl
+            frame: dataUrl,
+            facingMode: currentFacingMode
           }
         });
       }
@@ -901,19 +828,20 @@
     }
 
     /* ============================================================
-       4. CONSOLA VEYON (PANEL PC DEL PROFESOR)
+       4. CONSOLA DE ADMINISTRADOR (PC / PROFESOR)
        ============================================================ */
     function addSimulatedTablet() {
       const nextId = tablets.length > 0 ? Math.max(...tablets.map(t => t.id)) + 1 : 1;
       const numStr = String(nextId).padStart(2, '0');
-      const names = ['Camila Soto', 'Matías Silva', 'Sofía Morales', 'Lucas Reyes', 'Valentina Díaz'];
+      const names = ['Sofía Morales', 'Lucas Reyes', 'Valentina Díaz', 'Camila Soto', 'Matías Silva'];
       const randomName = names[(nextId - 1) % names.length];
 
       const newTab = {
         id: nextId,
         name: `${randomName} (#${numStr})`,
-        email: `alumno${numStr}@colegio.edu`,
+        email: `alumno${numStr}@aula.edu`,
         status: 'active',
+        facingMode: 'user',
         remainingSeconds: 1800,
         totalSeconds: 1800,
         battery: Math.floor(Math.random() * 40 + 60),
@@ -922,48 +850,39 @@
       };
 
       tablets.push(newTab);
-      generateDemoPattern(nextId);
+      generateDemoCamPattern(nextId);
       renderTablets();
-      showToast(`Tablet #${numStr} conectada`);
+      showToast(`Cámara Demo #${numStr} agregada`);
     }
 
-    function generateDemoPattern(tabletId) {
+    function generateDemoCamPattern(tabletId) {
       const c = document.createElement('canvas');
       c.width = 360;
       c.height = 225;
       const ctx = c.getContext('2d');
 
       const drawLoop = () => {
-        ctx.fillStyle = '#090d16';
+        ctx.fillStyle = '#0f172a';
         ctx.fillRect(0, 0, c.width, c.height);
 
-        ctx.fillStyle = '#1e293b';
-        ctx.fillRect(0, 0, c.width, 24);
-        ctx.fillStyle = '#38bdf8';
-        ctx.font = 'bold 11px Inter';
-        ctx.fillText(`Google Classroom • Alumno #${tabletId}`, 10, 16);
-
-        const t = Date.now() * 0.002;
-        ctx.fillStyle = '#334155';
-        ctx.fillRect(16, 42, 190, 14);
-        ctx.fillRect(16, 66, 290, 8);
-        ctx.fillRect(16, 80, 240, 8);
-
-        ctx.strokeStyle = '#06b6d4';
-        ctx.lineWidth = 2.5;
+        // Rostro simulado o entorno
+        const t = Date.now() * 0.003;
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 3;
         ctx.beginPath();
-        for (let x = 16; x < 320; x += 10) {
-          const y = 150 + Math.sin(t + x * 0.05) * 22;
-          if (x === 16) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
+        ctx.arc(180, 110 + Math.sin(t) * 10, 45, 0, Math.PI * 2);
         ctx.stroke();
 
-        remoteCanvasFrames[tabletId] = c.toDataURL('image/jpeg', 0.45);
+        ctx.fillStyle = '#64748b';
+        ctx.font = 'bold 12px Inter';
+        ctx.textAlign = 'center';
+        ctx.fillText(`CÁMARA EN VIVO • Tablet #${tabletId}`, 180, 185);
+
+        remoteCamFrames[tabletId] = c.toDataURL('image/jpeg', 0.5);
         updateCardMirror(tabletId);
       };
 
-      setInterval(drawLoop, 600);
+      setInterval(drawLoop, 500);
     }
 
     function renderTablets() {
@@ -975,16 +894,16 @@
         grid.innerHTML = `
           <div class="col-span-full py-16 px-6 text-center text-slate-400 bg-slate-900/60 rounded-3xl border border-slate-800 flex flex-col items-center justify-center">
             <div class="w-16 h-16 rounded-2xl bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-2xl text-slate-500 mb-3 shadow-inner">
-              <i class="fa-solid fa-tablet-screen-button"></i>
+              <i class="fa-solid fa-camera-rotate"></i>
             </div>
-            <h3 class="text-base font-bold text-white mb-1">Esperando conexión de Tablets</h3>
+            <h3 class="text-base font-bold text-white mb-1">Esperando conexión de Cámaras</h3>
             <p class="text-xs text-slate-400 max-w-md mb-5 leading-relaxed">
-              Las pantallas aparecerán aquí cuando una tablet escanee su código QR o cuando agregues una tablet de prueba.
+              Las transmisiones de video en vivo de las cámaras frontal y trasera aparecerán aquí automáticamente al escanear el QR desde la tablet o móvil.
             </p>
             <div class="flex items-center gap-2 flex-wrap justify-center">
               <button onclick="addSimulatedTablet()" class="px-5 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-600/25 transition active:scale-95">
                 <i class="fa-solid fa-plus"></i>
-                <span>+ Conectar Tablet de Prueba</span>
+                <span>+ Agregar Demo Cámara</span>
               </button>
               <button onclick="openPairModalNew()" class="px-5 py-2.5 rounded-2xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-cyan-600/25 transition active:scale-95">
                 <i class="fa-solid fa-qrcode"></i>
@@ -1004,13 +923,14 @@
             statusBadge = `<span class="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800 text-[10px] font-bold uppercase flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> EN VIVO</span>`;
           } else if (tab.status === 'locked') {
             borderClass = 'border-rose-600/40 hover:border-rose-500';
-            statusBadge = `<span class="px-2 py-0.5 rounded-full bg-rose-950 text-rose-400 border border-rose-800 text-[10px] font-bold uppercase flex items-center gap-1.5"><i class="fa-solid fa-lock text-[9px]"></i> BLOQUEADA</span>`;
+            statusBadge = `<span class="px-2 py-0.5 rounded-full bg-rose-950 text-rose-400 border border-rose-800 text-[10px] font-bold uppercase flex items-center gap-1.5"><i class="fa-solid fa-lock text-[9px]"></i> PAUSADA</span>`;
           } else {
             borderClass = 'border-cyan-600/30 hover:border-cyan-500';
             statusBadge = `<span class="px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-400 border border-cyan-800 text-[10px] font-bold uppercase flex items-center gap-1.5"><i class="fa-solid fa-circle-check text-[9px]"></i> LIBRE</span>`;
           }
 
           const timeFormatted = formatTime(tab.remainingSeconds);
+          const isUser = (tab.facingMode === 'user');
 
           card.className = `bg-slate-900 border ${borderClass} rounded-2xl p-3.5 shadow-xl transition-all duration-200 flex flex-col justify-between gap-2.5 relative ${tab.selected ? 'ring-2 ring-cyan-500 bg-cyan-950/20' : ''}`;
 
@@ -1031,24 +951,33 @@
               <div>${statusBadge}</div>
             </div>
 
-            <!-- Contenedor Pantalla Espejo Veyon -->
-            <div class="screen-video-container border border-slate-800 shadow-inner group cursor-pointer" onclick="inspectTabletScreen(${tab.id})" title="Clic para supervisar en alta resolución">
-              <img id="screen-img-${tab.id}" src="${remoteCanvasFrames[tab.id] || ''}" class="${remoteCanvasFrames[tab.id] ? '' : 'hidden'} w-full h-full object-contain">
-              <div id="screen-placeholder-${tab.id}" class="${remoteCanvasFrames[tab.id] ? 'hidden' : 'flex'} w-full h-full flex-col items-center justify-center p-3 text-center bg-slate-950/90 text-slate-500">
+            <!-- Contenedor Video de Cámara -->
+            <div class="cam-feed-container border border-slate-800 shadow-inner group cursor-pointer" onclick="inspectTabletScreen(${tab.id})" title="Clic para ver cámara en pantalla completa">
+              <img id="screen-img-${tab.id}" src="${remoteCamFrames[tab.id] || ''}" class="${remoteCamFrames[tab.id] ? '' : 'hidden'} w-full h-full object-cover">
+              <div id="screen-placeholder-${tab.id}" class="${remoteCamFrames[tab.id] ? 'hidden' : 'flex'} w-full h-full flex-col items-center justify-center p-3 text-center bg-slate-950/90 text-slate-500">
                 <div class="w-8 h-8 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 mb-1.5 group-hover:scale-110 transition-transform">
-                  <i class="fa-solid fa-video text-sm"></i>
+                  <i class="fa-solid fa-camera text-sm"></i>
                 </div>
-                <span class="text-[10px] text-slate-400 font-medium">Esperando transmisión</span>
-                <span class="text-[9px] text-cyan-400 mt-0.5 underline">Transmitir Pantalla o Cámara</span>
+                <span class="text-[10px] text-slate-400 font-medium">Iniciando cámara...</span>
               </div>
               <div class="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                 <span class="px-2.5 py-1 rounded-lg bg-cyan-600 text-white font-bold text-[10px] shadow-lg flex items-center gap-1">
                   <i class="fa-solid fa-expand"></i> Supervisar en Vivo
                 </span>
               </div>
-              <div class="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/70 text-[9px] font-mono-tech text-slate-300">
-                <span class="text-emerald-400 font-bold">● VEYON LIVE</span>
+              <div class="absolute bottom-1.5 left-1.5 px-2 py-0.5 rounded bg-black/75 text-[9px] font-mono-tech text-cyan-300 border border-cyan-800">
+                <i class="fa-solid ${isUser ? 'fa-user' : 'fa-mountain-sun'} mr-1"></i> ${isUser ? 'FRONTAL' : 'TRASERA'}
               </div>
+            </div>
+
+            <!-- Conmutador Rápido de Cámara en la Tarjeta -->
+            <div class="grid grid-cols-2 gap-1.5">
+              <button onclick="remoteSwitchCamera(${tab.id}, 'user')" class="py-1 rounded-lg text-[10px] font-bold border transition ${isUser ? 'bg-cyan-950 border-cyan-500 text-cyan-300 shadow' : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:text-white'}">
+                <i class="fa-solid fa-user mr-1"></i> Frontal
+              </button>
+              <button onclick="remoteSwitchCamera(${tab.id}, 'environment')" class="py-1 rounded-lg text-[10px] font-bold border transition ${!isUser ? 'bg-cyan-950 border-cyan-500 text-cyan-300 shadow' : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:text-white'}">
+                <i class="fa-solid fa-mountain-sun mr-1"></i> Trasera
+              </button>
             </div>
 
             <!-- Barra de Estado Inferior -->
@@ -1084,11 +1013,24 @@
       updateSelectedCounter();
     }
 
+    function remoteSwitchCamera(tabletId, facingMode) {
+      const tab = tablets.find(t => t.id === tabletId);
+      if (tab) {
+        tab.facingMode = facingMode;
+        broadcastMessage({
+          type: 'SWITCH_CAMERA_REMOTE',
+          payload: { targetId: tabletId, facingMode }
+        });
+        showToast(`Solicitado cambio a cámara ${facingMode === 'user' ? 'Frontal' : 'Trasera'}`);
+        renderTablets();
+      }
+    }
+
     function updateCardMirror(tabletId) {
       const img = document.getElementById(`screen-img-${tabletId}`);
       const placeholder = document.getElementById(`screen-placeholder-${tabletId}`);
-      if (img && remoteCanvasFrames[tabletId]) {
-        img.src = remoteCanvasFrames[tabletId];
+      if (img && remoteCamFrames[tabletId]) {
+        img.src = remoteCamFrames[tabletId];
         img.classList.remove('hidden');
         if (placeholder) placeholder.classList.add('hidden');
       }
@@ -1096,8 +1038,8 @@
       if (currentInspectId === tabletId) {
         const inspectImg = document.getElementById('inspect-img-player');
         const inspectNoVideo = document.getElementById('inspect-no-video');
-        if (inspectImg && remoteCanvasFrames[tabletId]) {
-          inspectImg.src = remoteCanvasFrames[tabletId];
+        if (inspectImg && remoteCamFrames[tabletId]) {
+          inspectImg.src = remoteCamFrames[tabletId];
           inspectImg.classList.remove('hidden');
           if (inspectNoVideo) inspectNoVideo.classList.add('hidden');
         }
