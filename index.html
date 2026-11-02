@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VeyonCam Fleet - Supervisión Remota de Cámaras Frontal/Trasera</title>
+  <title>Control de Aula y Tablets - Supervisión en Vivo</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons -->
@@ -37,6 +37,10 @@
       object-fit: cover;
       display: block;
     }
+    /* Animación del VU Meter */
+    .vu-bar {
+      transition: width 0.08s ease-out;
+    }
   </style>
 </head>
 <body class="min-h-screen flex flex-col antialiased selection:bg-cyan-500 selection:text-white">
@@ -50,13 +54,13 @@
       <div>
         <div class="flex items-center gap-2">
           <h1 class="text-base sm:text-lg font-extrabold tracking-tight text-white flex items-center gap-1.5">
-            Veyon<span class="text-cyan-400">Cam</span>
+            Control<span class="text-cyan-400">Aula</span>
           </h1>
           <span id="cloud-signal-badge" class="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700/50 text-[10px] font-mono-tech uppercase font-bold tracking-wider flex items-center gap-1">
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> CLOUD LIVE
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> EN LÍNEA (NUBE)
           </span>
         </div>
-        <p class="text-[11px] text-slate-400 hidden sm:block">Supervisión en Tiempo Real: Cámaras Frontal y Trasera</p>
+        <p class="text-[11px] text-slate-400 hidden sm:block">Supervisión en Tiempo Real: Cámaras Frontal y Trasera con Audio</p>
       </div>
     </div>
 
@@ -88,6 +92,11 @@
       <button onclick="openPairModalNew()" class="px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs flex items-center gap-1.5 transition active:scale-95 shadow">
         <i class="fa-solid fa-qrcode"></i>
         <span>Vincular Cámara (QR)</span>
+      </button>
+
+      <button onclick="openInstructionsModal()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 text-xs font-bold flex items-center gap-1.5 transition active:scale-95 shadow">
+        <i class="fa-solid fa-book-open"></i>
+        <span>Instrucciones de Uso</span>
       </button>
     </div>
   </header>
@@ -228,7 +237,13 @@
           <video id="tablet-local-video" autoplay playsinline muted class="w-full h-full object-cover"></video>
           
           <div class="absolute top-2 left-2 px-2.5 py-1 rounded-lg bg-black/75 backdrop-blur-sm text-emerald-400 text-[10px] font-mono-tech flex items-center gap-1.5 border border-emerald-500/30">
-            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span> TRANSMITIENDO AL PC
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span> CÁMARA + AUDIO EN VIVO
+          </div>
+
+          <!-- Indicador de Micrófono en la tablet -->
+          <div class="absolute top-2 right-2 px-2.5 py-1 rounded-lg bg-black/75 backdrop-blur-sm text-cyan-300 text-[10px] font-mono-tech flex items-center gap-1.5 border border-cyan-500/30">
+            <i class="fa-solid fa-microphone text-xs animate-pulse"></i>
+            <span id="tab-mic-level-txt">Micrófono Activo</span>
           </div>
 
           <div class="absolute bottom-2 right-2 flex items-center gap-1.5">
@@ -252,42 +267,38 @@
         </div>
 
         <!-- Tiempo de sesión restante -->
-        <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-3.5 text-left flex items-center justify-between">
-          <div>
-            <span class="text-[11px] text-slate-400 block">Tiempo asignado por el profesor:</span>
-            <span id="tab-client-timer" class="font-mono-tech text-lg font-bold text-cyan-400">30:00</span>
-          </div>
-          <span class="text-[11px] text-slate-500 max-w-[160px] text-right">La cámara se transmite de forma continua y segura.</span>
+        <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800 flex items-center justify-between text-xs">
+          <span class="text-slate-400">Tiempo restante:</span>
+          <span id="tab-client-timer" class="font-mono-tech font-bold text-cyan-300 text-sm">30:00</span>
+        </div>
+
+        <!-- Mensaje flash si existe -->
+        <div id="tab-client-flash-box" class="p-3 rounded-2xl bg-amber-950/70 border border-amber-600/50 text-amber-200 text-xs hidden">
+          <i class="fa-solid fa-bullhorn text-amber-400 mr-1.5"></i>
+          <span id="tab-client-flash-msg"></span>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Pantalla de Bloqueo Tablet -->
+    <div id="tab-client-locked-box" class="flex-1 flex flex-col items-center justify-center text-center hidden">
+      <div class="bg-slate-900 border border-rose-800/60 rounded-3xl p-8 max-w-sm w-full shadow-2xl flex flex-col items-center gap-4">
+        <div class="w-16 h-16 rounded-3xl bg-rose-950 text-rose-400 border border-rose-700 flex items-center justify-center text-3xl animate-bounce">
+          <i class="fa-solid fa-lock"></i>
+        </div>
+        <div>
+          <h2 class="text-lg font-bold text-white mb-1">Dispositivo Pausado</h2>
+          <p class="text-xs text-slate-400">El profesor ha pausado la sesión o el tiempo asignado ha expirado.</p>
         </div>
       </div>
     </div>
-
-    <!-- Pantalla de Bloqueo / Tiempo Agotado -->
-    <div id="tab-client-locked-box" class="hidden flex-1 flex flex-col items-center justify-center text-center p-6">
-      <div class="w-24 h-24 rounded-3xl bg-rose-500/20 border-2 border-rose-500 text-rose-400 flex items-center justify-center text-4xl mb-4 animate-bounce">
-        <i class="fa-solid fa-lock"></i>
-      </div>
-      <h2 class="text-2xl sm:text-3xl font-black text-rose-300">Cámara Pausada / Bloqueada</h2>
-      <p class="text-xs sm:text-sm text-slate-300 mt-2 max-w-md leading-relaxed">
-        El profesor ha pausado la sesión de este dispositivo o el tiempo ha expirado.
-      </p>
-    </div>
-
-    <!-- Alerta Flash Recibida -->
-    <div id="tab-client-flash-box" class="hidden mt-4 p-4 rounded-2xl bg-amber-500/20 border border-amber-500 text-amber-200 text-xs sm:text-sm font-semibold flex items-center gap-3 animate-pulse">
-      <i class="fa-solid fa-bullhorn text-lg"></i>
-      <span id="tab-client-flash-msg">Mensaje del profesor</span>
-    </div>
   </section>
 
-  <!-- ============================================== -->
-  <!-- MODALES DE CONFIGURACIÓN Y ACCIONES            -->
-  <!-- ============================================== -->
-
-  <!-- Modal: Inspección a Pantalla Completa de Tablet -->
+  <!-- Modal: Inspección a Pantalla Completa de Tablet con Audio y VU Meter -->
   <div id="modal-screen-inspect" class="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-3 hidden">
     <div class="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-6xl max-h-[96vh] flex flex-col overflow-hidden shadow-2xl">
-      <div class="bg-slate-950 px-5 py-3 border-b border-slate-800 flex items-center justify-between">
+      <div class="bg-slate-950 px-5 py-3 border-b border-slate-800 flex items-center justify-between flex-wrap gap-2">
         <div class="flex items-center gap-3">
           <span class="w-3 h-3 rounded-full bg-emerald-400 animate-pulse"></span>
           <div>
@@ -298,20 +309,58 @@
             <p class="text-[11px] text-slate-400 font-mono-tech" id="inspect-tablet-email"></p>
           </div>
         </div>
-        <div class="flex items-center gap-2">
+
+        <!-- Controles de Audio en Vivo y Cámara dentro del Visor Ampliado -->
+        <div class="flex items-center gap-2 flex-wrap">
+          <!-- Botón de Audio / Escucha -->
+          <button id="inspect-audio-btn" onclick="toggleInspectAudio()" class="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-cyan-950 text-slate-300 hover:text-cyan-300 border border-slate-700 hover:border-cyan-600 text-xs font-bold transition flex items-center gap-2 active:scale-95">
+            <i id="inspect-audio-icon" class="fa-solid fa-volume-xmark text-rose-400"></i>
+            <span id="inspect-audio-text">Escuchar Micrófono</span>
+          </button>
+
+          <!-- Control de Volumen del Micrófono Remoto -->
+          <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800">
+            <i class="fa-solid fa-volume-high text-xs text-slate-400"></i>
+            <input type="range" id="inspect-vol-slider" min="0" max="100" value="90" oninput="setInspectVolume(this.value)" class="w-16 sm:w-20 h-1.5 accent-cyan-400">
+          </div>
+
+          <!-- VU-Meter de Sonido en Tiempo Real -->
+          <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800" title="Nivel de audio en vivo de la tablet">
+            <i class="fa-solid fa-waveform-lines text-xs text-cyan-400"></i>
+            <div class="w-20 sm:w-28 h-2 bg-slate-800 rounded-full overflow-hidden">
+              <div id="inspect-vu-bar" class="vu-bar h-full bg-gradient-to-r from-emerald-500 via-yellow-400 to-rose-500 rounded-full" style="width: 0%;"></div>
+            </div>
+            <span id="inspect-vu-db" class="text-[10px] font-mono-tech text-slate-400 w-8">0%</span>
+          </div>
+
+          <!-- Giro de Cámara Remoto desde el Modal -->
+          <button onclick="remoteSwitchCameraModal()" id="inspect-switch-cam-btn" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition">
+            <i class="fa-solid fa-camera-rotate text-cyan-400"></i>
+            <span id="inspect-cam-mode-text">Girar Cámara</span>
+          </button>
+
           <button onclick="quickLockInspectTablet()" id="inspect-lock-btn" class="px-3 py-1.5 rounded-xl bg-rose-950 text-rose-300 border border-rose-700 text-xs font-bold transition hover:bg-rose-900">
             <i class="fa-solid fa-lock mr-1"></i> Bloquear
           </button>
-          <button onclick="closeModal('modal-screen-inspect')" class="p-2 rounded-xl text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 transition">
+          
+          <button onclick="closeInspectModal()" class="p-2 rounded-xl text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 transition">
             <i class="fa-solid fa-xmark text-lg"></i>
           </button>
         </div>
       </div>
-      <div class="flex-1 bg-black flex items-center justify-center relative overflow-hidden min-h-[420px]">
-        <img id="inspect-img-player" class="w-full h-full object-contain max-h-[78vh] hidden" alt="Live Stream">
+
+      <!-- Pantalla Gigante HD sin parpadeo (Canvas) -->
+      <div class="flex-1 bg-black flex items-center justify-center relative overflow-hidden min-h-[460px] sm:min-h-[540px]">
+        <canvas id="inspect-canvas-player" width="800" height="500" class="w-full h-full object-contain max-h-[82vh] hidden"></canvas>
         <div id="inspect-no-video" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500 gap-3">
-          <i class="fa-solid fa-display text-5xl"></i>
+          <i class="fa-solid fa-camera text-5xl text-slate-600"></i>
           <p class="text-xs font-mono-tech text-center">Esperando señal de transmisión de la tablet...</p>
+        </div>
+
+        <!-- Indicador flotante en pantalla completa -->
+        <div class="absolute bottom-4 left-4 px-3 py-1.5 rounded-xl bg-black/80 backdrop-blur-sm border border-slate-800 text-xs font-mono-tech text-cyan-300 flex items-center gap-2 pointer-events-none">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+          <span id="inspect-hud-info">Cámara Frontal • Audio Disponible</span>
         </div>
       </div>
     </div>
@@ -442,6 +491,80 @@
     </div>
   </div>
 
+  <!-- Modal: Guía e Instrucciones Paso a Paso en Español -->
+  <div id="modal-instructions" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-700 rounded-3xl max-w-2xl w-full p-5 sm:p-7 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+      <button onclick="closeModal('modal-instructions')" class="absolute top-4 right-4 text-slate-400 hover:text-white p-2">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+
+      <div class="flex items-center gap-3 mb-4 pb-3 border-b border-slate-800">
+        <div class="w-12 h-12 rounded-2xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-2xl">
+          <i class="fa-solid fa-chalkboard-user"></i>
+        </div>
+        <div>
+          <h2 class="text-base sm:text-lg font-bold text-white">Instrucciones de Configuración y Uso</h2>
+          <p class="text-xs text-slate-400">Guía paso a paso para supervisar tablets en el aula</p>
+        </div>
+      </div>
+
+      <div class="space-y-4 text-xs sm:text-sm text-slate-300 leading-relaxed">
+        <!-- Paso 1 -->
+        <div class="bg-slate-950 p-3.5 rounded-2xl border border-slate-800">
+          <div class="flex items-center gap-2 text-cyan-400 font-bold mb-1">
+            <span class="w-6 h-6 rounded-full bg-cyan-950 border border-cyan-700 text-xs flex items-center justify-center text-white">1</span>
+            <span>En tu Computador / Notebook (Profesor):</span>
+          </div>
+          <p class="text-xs text-slate-400 pl-8">
+            Abre esta página en Google Chrome o Microsoft Edge. Este será tu panel principal donde verás el mosaico con todas las tablets conectadas en vivo.
+          </p>
+        </div>
+
+        <!-- Paso 2 -->
+        <div class="bg-slate-950 p-3.5 rounded-2xl border border-slate-800">
+          <div class="flex items-center gap-2 text-emerald-400 font-bold mb-1">
+            <span class="w-6 h-6 rounded-full bg-emerald-950 border border-emerald-700 text-xs flex items-center justify-center text-white">2</span>
+            <span>Conectar cada Tablet física (Android o iPad):</span>
+          </div>
+          <ol class="list-decimal pl-12 space-y-1 text-xs text-slate-400">
+            <li>En tu PC, presiona el botón <strong class="text-cyan-300">"Vincular Cámara (QR)"</strong> o el ícono de QR en una tablet.</li>
+            <li>En la tablet, abre la cámara de fotos (o Google Chrome) y <strong>escanea el código QR</strong> que aparece en el monitor.</li>
+            <li>Toca el enlace que reconoce la cámara para abrir la página en la tablet.</li>
+            <li>Cuando la tablet pregunte <em>"¿Permitir que el sitio web use la cámara y el micrófono?"</em>, presiona <strong class="text-emerald-400">PERMITIR</strong>.</li>
+            <li>¡Listo! La tablet aparecerá de inmediato transmitiendo video en tu pantalla de PC.</li>
+          </ol>
+        </div>
+
+        <!-- Paso 3 -->
+        <div class="bg-slate-950 p-3.5 rounded-2xl border border-slate-800">
+          <div class="flex items-center gap-2 text-amber-400 font-bold mb-1">
+            <span class="w-6 h-6 rounded-full bg-amber-950 border border-amber-700 text-xs flex items-center justify-center text-white">3</span>
+            <span>Cómo Ver en Grande y Escuchar el Micrófono:</span>
+          </div>
+          <ul class="list-disc pl-12 space-y-1 text-xs text-slate-400">
+            <li>Haz clic sobre cualquier video en la cuadrícula o pulsa <strong class="text-white">"Ampliar"</strong> para ver la imagen en pantalla completa.</li>
+            <li>Presiona el botón <strong class="text-emerald-400">"Escuchar Micrófono"</strong> para activar el audio en vivo y escuchar lo que pasa alrededor de la tablet por los parlantes del PC.</li>
+            <li>Usa el botón <strong class="text-cyan-300">"Girar Cámara"</strong> para alternar entre la cámara frontal (ver al alumno) y la trasera (ver su cuaderno, mesa o prueba).</li>
+          </ul>
+        </div>
+
+        <!-- Paso 4: Recomendación técnica -->
+        <div class="bg-cyan-950/40 p-3.5 rounded-2xl border border-cyan-800/60 text-xs text-cyan-200">
+          <strong class="block mb-1 text-cyan-300 flex items-center gap-1.5">
+            <i class="fa-solid fa-lightbulb"></i> Consejo para la sala de clases:
+          </strong>
+          Para que la tablet no apague la pantalla mientras el alumno trabaja, en los Ajustes de la tablet ve a <em>Pantalla &rarr; Tiempo de espera</em> y selecciona <strong>30 minutos</strong> o <strong>"Nunca apagar mientras esté cargando"</strong>.
+        </div>
+      </div>
+
+      <div class="mt-5 flex justify-end">
+        <button onclick="closeModal('modal-instructions')" class="px-5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs transition">
+          Entendido, cerrar guía
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast de Notificaciones -->
   <div id="toast" class="fixed bottom-5 right-5 bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-2xl shadow-2xl text-xs z-50 flex items-center gap-2 transform translate-y-24 opacity-0 transition-all duration-300 pointer-events-none">
     <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400 text-sm"></i>
@@ -465,20 +588,29 @@
     let currentRole = 'pc'; // 'pc' o 'tablet'
     let tablets = [];
     const remoteCamFrames = {}; // Frames JPEG recibidos por cada tablet
+    const remoteAudioLevels = {}; // Niveles de audio (0 a 100)
     let currentInspectId = null;
+    let isListeningAudio = false;
     let globalFlashMessage = '';
     let clientTabletId = 1;
     let activeMediaStream = null;
     let streamInterval = null;
     let currentFacingMode = 'user'; // 'user' (frontal) o 'environment' (trasera)
 
+    // Web Audio API para transmisión y monitoreo de audio
+    let audioCtx = null;
+    let micAnalyser = null;
+    let micGainNode = null;
+    let pcAudioSynth = null;
+    let audioRecorder = null;
+    let inspectVolume = 0.9;
+    const audioChunksQueue = [];
+    let isPlayingAudioChunk = false;
+
     /* ============================================================
-       1. SISTEMA DE MENSAJERÍA HÍBRIDO (LOCAL + CLOUD MQTT)
+       1. INICIALIZACIÓN DE RED Y MENSAJERÍA
        ============================================================ */
     function initMessagingNetwork() {
-      if (syncChannel) {
-        syncChannel.onmessage = (event) => handleIncomingMessage(event.data);
-      }
       window.addEventListener('storage', (e) => {
         if (e.key === 'veyon_cam_last_msg' && e.newValue) {
           try { handleIncomingMessage(JSON.parse(e.newValue)); } catch (err) {}
@@ -530,10 +662,10 @@
       if (!badge) return;
       if (connected) {
         badge.className = 'px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700/50 text-[10px] font-mono-tech uppercase font-bold tracking-wider flex items-center gap-1';
-        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> CLOUD LIVE';
+        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> EN LÍNEA (NUBE)';
       } else {
         badge.className = 'px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 text-[10px] font-mono-tech uppercase font-bold tracking-wider flex items-center gap-1';
-        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span> LOCAL P2P';
+        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span> RED LOCAL (SIN INTERNET)';
       }
     }
 
@@ -584,11 +716,17 @@
           renderTablets();
         }
       } else if (msg.type === 'TABLET_FRAME') {
-        const { id, frame, facingMode } = msg.payload;
+        const { id, frame, facingMode, audioLevel } = msg.payload;
         remoteCamFrames[id] = frame;
-        const tab = tablets.find(t => t.id === id);
+        remoteAudioLevels[id] = audioLevel || 0;
+        const tab = tablets.find(t => t.id == id);
         if (tab && facingMode) tab.facingMode = facingMode;
         updateCardMirror(id);
+      } else if (msg.type === 'TABLET_AUDIO_CHUNK') {
+        const { id, audio } = msg.payload;
+        if (isListeningAudio && currentInspectId && currentInspectId == id) {
+          enqueueRemoteAudio(audio);
+        }
       } else if (msg.type === 'SWITCH_CAMERA_REMOTE') {
         const { targetId, facingMode } = msg.payload;
         if (currentRole === 'tablet' && clientTabletId === targetId) {
@@ -683,7 +821,7 @@
     }
 
     /* ============================================================
-       3. MODO TABLET (CÁMARA FRONTAL Y TRASERA getUserMedia)
+       3. MODO TABLET (CÁMARA FRONTAL Y TRASERA + AUDIO getUserMedia)
        ============================================================ */
     async function initTabletCameraMode() {
       const nameEl = document.getElementById('tab-client-name');
@@ -717,29 +855,107 @@
       if (activeMediaStream) {
         activeMediaStream.getTracks().forEach(t => t.stop());
       }
+      if (audioRecorder && audioRecorder.state !== 'inactive') {
+        try { audioRecorder.stop(); } catch(e) {}
+      }
 
       currentFacingMode = facing;
       updateTabletFacingUI();
 
       try {
+
         const constraints = {
           video: {
             facingMode: { ideal: facing },
             width: { ideal: 640 },
             height: { ideal: 480 }
           },
-          audio: false
+          audio: true // Captura el micrófono de la tablet
         };
 
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
         activeMediaStream = stream;
         const videoEl = document.getElementById('tablet-local-video');
         videoEl.srcObject = stream;
-        showToast(`Cámara ${facing === 'user' ? 'Frontal' : 'Trasera'} iniciada`);
+
+        // Iniciar analizador y grabador de audio local en la tablet
+        setupLocalAudioAnalysis(stream);
+        setupAudioChunkStreaming(stream);
+
+        showToast(`Cámara ${facing === 'user' ? 'Frontal' : 'Trasera'} + Micrófono activos`);
       } catch (err) {
-        console.warn('Error accediendo a cámara:', err);
-        showToast('No se pudo acceder a la cámara. Revisa permisos.');
+        console.warn('Error accediendo a cámara con audio, intentando solo video:', err);
+        try {
+          const streamFallback = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: facing }, width: { ideal: 640 }, height: { ideal: 480 } },
+            audio: false
+          });
+          activeMediaStream = streamFallback;
+          const videoEl = document.getElementById('tablet-local-video');
+          videoEl.srcObject = streamFallback;
+          showToast(`Cámara ${facing === 'user' ? 'Frontal' : 'Trasera'} iniciada (sin audio)`);
+        } catch (e) {
+          showToast('No se pudo acceder a la cámara. Revisa permisos.');
+        }
       }
+    }
+
+    // Transmisión de fragmentos de audio reales desde el micrófono de la tablet
+    function setupAudioChunkStreaming(stream) {
+      if (!stream.getAudioTracks().length) return;
+      try {
+        const mimeType = (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/webm;codecs=opus'))
+          ? 'audio/webm;codecs=opus'
+          : (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '');
+
+        audioRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+        audioRecorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0 && currentRole === 'tablet') {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              broadcastMessage({
+                type: 'TABLET_AUDIO_CHUNK',
+                payload: {
+                  id: clientTabletId,
+                  audio: reader.result
+                }
+              });
+            };
+            reader.readAsDataURL(e.data);
+          }
+        };
+        // Grabar y emitir paquetes de voz cada 600ms
+        audioRecorder.start(600);
+      } catch (err) {
+        console.warn('MediaRecorder streaming no soportado:', err);
+      }
+    }
+
+    // Configurar analizador de volumen del micrófono en la tablet
+    function setupLocalAudioAnalysis(stream) {
+      try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return;
+        const ctx = new AudioContextClass();
+        const source = ctx.createMediaStreamSource(stream);
+        micAnalyser = ctx.createAnalyser();
+        micAnalyser.fftSize = 64;
+        source.connect(micAnalyser);
+      } catch (e) {
+        console.warn('Audio analysis no soportado:', e);
+      }
+    }
+
+    function getLocalAudioVolume() {
+      if (!micAnalyser) return 0;
+      const dataArray = new Uint8Array(micAnalyser.frequencyBinCount);
+      micAnalyser.getByteFrequencyData(dataArray);
+      let sum = 0;
+      for (let i = 0; i < dataArray.length; i++) {
+        sum += dataArray[i];
+      }
+      const avg = sum / dataArray.length;
+      return Math.min(100, Math.round((avg / 128) * 100));
     }
 
     function toggleTabletFacingMode() {
@@ -786,12 +1002,16 @@
         offCtx.drawImage(videoEl, 0, 0, offCanvas.width, offCanvas.height);
         const dataUrl = offCanvas.toDataURL('image/jpeg', 0.5);
 
+        // Nivel de volumen capturado
+        const currentAudioLevel = getLocalAudioVolume();
+
         broadcastMessage({
           type: 'TABLET_FRAME',
           payload: {
             id: clientTabletId,
             frame: dataUrl,
-            facingMode: currentFacingMode
+            facingMode: currentFacingMode,
+            audioLevel: currentAudioLevel
           }
         });
       }
@@ -951,22 +1171,27 @@
               <div>${statusBadge}</div>
             </div>
 
-            <!-- Contenedor Video de Cámara -->
-            <div class="cam-feed-container border border-slate-800 shadow-inner group cursor-pointer" onclick="inspectTabletScreen(${tab.id})" title="Clic para ver cámara en pantalla completa">
-              <img id="screen-img-${tab.id}" src="${remoteCamFrames[tab.id] || ''}" class="${remoteCamFrames[tab.id] ? '' : 'hidden'} w-full h-full object-cover">
-              <div id="screen-placeholder-${tab.id}" class="${remoteCamFrames[tab.id] ? 'hidden' : 'flex'} w-full h-full flex-col items-center justify-center p-3 text-center bg-slate-950/90 text-slate-500">
+            <!-- Contenedor Video de Cámara con Canvas Antiparードeo -->
+            <div class="cam-feed-container border border-slate-800 shadow-inner group cursor-pointer relative" onclick="inspectTabletScreen(${tab.id})" title="Clic para ver cámara en pantalla completa y escuchar">
+              <canvas id="cam-canvas-${tab.id}" width="360" height="225" class="w-full h-full object-cover hidden"></canvas>
+              <div id="screen-placeholder-${tab.id}" class="w-full h-full flex flex-col items-center justify-center p-3 text-center bg-slate-950/90 text-slate-500">
                 <div class="w-8 h-8 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 mb-1.5 group-hover:scale-110 transition-transform">
                   <i class="fa-solid fa-camera text-sm"></i>
                 </div>
                 <span class="text-[10px] text-slate-400 font-medium">Iniciando cámara...</span>
               </div>
-              <div class="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                <span class="px-2.5 py-1 rounded-lg bg-cyan-600 text-white font-bold text-[10px] shadow-lg flex items-center gap-1">
-                  <i class="fa-solid fa-expand"></i> Supervisar en Vivo
+              <div class="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 pointer-events-none">
+                <span class="px-2.5 py-1 rounded-lg bg-cyan-600 text-white font-bold text-[10px] shadow-lg flex items-center gap-1.5">
+                  <i class="fa-solid fa-expand"></i> Ampliar & Escuchar
                 </span>
               </div>
-              <div class="absolute bottom-1.5 left-1.5 px-2 py-0.5 rounded bg-black/75 text-[9px] font-mono-tech text-cyan-300 border border-cyan-800">
-                <i class="fa-solid ${isUser ? 'fa-user' : 'fa-mountain-sun'} mr-1"></i> ${isUser ? 'FRONTAL' : 'TRASERA'}
+              <div class="absolute bottom-1.5 left-1.5 px-2 py-0.5 rounded bg-black/75 text-[9px] font-mono-tech text-cyan-300 border border-cyan-800 flex items-center gap-1 pointer-events-none">
+                <i class="fa-solid ${isUser ? 'fa-user' : 'fa-mountain-sun'}"></i> ${isUser ? 'FRONTAL' : 'TRASERA'}
+              </div>
+              <!-- Indicador de audio en la tarjeta -->
+              <div class="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded bg-black/75 text-[9px] font-mono-tech text-emerald-400 border border-emerald-800 flex items-center gap-1 pointer-events-none">
+                <i class="fa-solid fa-microphone text-[8px]"></i>
+                <span id="card-audio-level-${tab.id}">0%</span>
               </div>
             </div>
 
@@ -983,7 +1208,7 @@
             <!-- Barra de Estado Inferior -->
             <div class="bg-slate-950/80 rounded-xl px-2.5 py-2 border border-slate-800/80 flex items-center justify-between text-xs">
               <span class="text-slate-400 text-[10px]">Tiempo:</span>
-              <span class="font-mono-tech font-bold text-xs ${tab.remainingSeconds <= 300 && tab.status === 'active' ? 'text-rose-400 animate-pulse' : 'text-cyan-300'}">
+              <span id="card-timer-${tab.id}" class="font-mono-tech font-bold text-xs ${tab.remainingSeconds <= 300 && tab.status === 'active' ? 'text-rose-400 animate-pulse' : 'text-cyan-300'}">
                 ${tab.status === 'free' ? '--:--' : timeFormatted}
               </span>
               <span class="text-[10px] font-mono-tech text-slate-400 flex items-center gap-1">
@@ -992,7 +1217,10 @@
             </div>
 
             <!-- Botones de Acción Individual -->
-            <div class="grid grid-cols-4 gap-1 pt-1.5 border-t border-slate-800/80">
+            <div class="grid grid-cols-5 gap-1 pt-1.5 border-t border-slate-800/80">
+              <button onclick="inspectTabletScreen(${tab.id})" title="Ampliar pantalla y escuchar" class="py-1 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-[11px] font-bold flex items-center justify-center gap-1 transition active:scale-95 shadow">
+                <i class="fa-solid fa-expand"></i> Ver
+              </button>
               <button onclick="quickAddTime(${tab.id}, 15)" title="+15 Minutos" class="py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-semibold transition active:scale-95">+15m</button>
               <button onclick="toggleSingleLock(${tab.id})" title="${tab.status === 'locked' ? 'Desbloquear' : 'Bloquear'}" class="py-1 rounded-lg ${tab.status === 'locked' ? 'bg-emerald-950 text-emerald-400 border border-emerald-600/40 hover:bg-emerald-900' : 'bg-rose-950/60 text-rose-300 border border-rose-600/30 hover:bg-rose-900'} text-[11px] font-semibold transition active:scale-95">
                 <i class="fa-solid ${tab.status === 'locked' ? 'fa-lock-open' : 'fa-lock'}"></i>
@@ -1006,6 +1234,11 @@
             </div>
           `;
           grid.appendChild(card);
+
+          // Si ya teníamos fotograma guardado, dibujarlo de inmediato
+          if (remoteCamFrames[tab.id]) {
+            drawFrameToCanvas(`cam-canvas-${tab.id}`, `screen-placeholder-${tab.id}`, remoteCamFrames[tab.id]);
+          }
         });
       }
 
@@ -1014,7 +1247,7 @@
     }
 
     function remoteSwitchCamera(tabletId, facingMode) {
-      const tab = tablets.find(t => t.id === tabletId);
+      const tab = tablets.find(t => t.id == tabletId);
       if (tab) {
         tab.facingMode = facingMode;
         broadcastMessage({
@@ -1026,24 +1259,168 @@
       }
     }
 
+    // Dibujado directo en Canvas: sin destellos ni recargas de imagen
+    function drawFrameToCanvas(canvasId, placeholderId, dataUrl) {
+      const cvs = document.getElementById(canvasId);
+      const ph = placeholderId ? document.getElementById(placeholderId) : null;
+      if (!cvs || !dataUrl) return;
+
+      const img = new Image();
+      img.onload = () => {
+        if (ph) ph.classList.add('hidden');
+        cvs.classList.remove('hidden');
+        const ctx = cvs.getContext('2d');
+        ctx.drawImage(img, 0, 0, cvs.width, cvs.height);
+      };
+      img.src = dataUrl;
+    }
+
     function updateCardMirror(tabletId) {
-      const img = document.getElementById(`screen-img-${tabletId}`);
-      const placeholder = document.getElementById(`screen-placeholder-${tabletId}`);
-      if (img && remoteCamFrames[tabletId]) {
-        img.src = remoteCamFrames[tabletId];
-        img.classList.remove('hidden');
-        if (placeholder) placeholder.classList.add('hidden');
+      const frameData = remoteCamFrames[tabletId];
+      if (frameData) {
+        drawFrameToCanvas(`cam-canvas-${tabletId}`, `screen-placeholder-${tabletId}`, frameData);
       }
 
-      if (currentInspectId === tabletId) {
-        const inspectImg = document.getElementById('inspect-img-player');
-        const inspectNoVideo = document.getElementById('inspect-no-video');
-        if (inspectImg && remoteCamFrames[tabletId]) {
-          inspectImg.src = remoteCamFrames[tabletId];
-          inspectImg.classList.remove('hidden');
-          if (inspectNoVideo) inspectNoVideo.classList.add('hidden');
+      const audioLvl = remoteAudioLevels[tabletId] || 0;
+      const cardAudio = document.getElementById(`card-audio-level-${tabletId}`);
+      if (cardAudio) {
+        cardAudio.textContent = `${audioLvl}%`;
+        cardAudio.className = audioLvl > 25 ? 'text-emerald-400 font-bold' : 'text-slate-400';
+      }
+
+      // Si la tablet inspeccionada en pantalla completa es esta:
+      if (currentInspectId && currentInspectId == tabletId && frameData) {
+        drawFrameToCanvas('inspect-canvas-player', 'inspect-no-video', frameData);
+
+        // Actualizar barra VU Meter del modal
+        const vuBar = document.getElementById('inspect-vu-bar');
+        const vuDb = document.getElementById('inspect-vu-db');
+        if (vuBar && vuDb) {
+          vuBar.style.width = `${audioLvl}%`;
+          vuDb.textContent = `${audioLvl}%`;
         }
       }
+    }
+
+    /* ============================================================
+       REPRODUCCIÓN DE AUDIO EN TIEMPO REAL EN PC
+       ============================================================ */
+    function initPcAudio() {
+      if (!audioCtx) {
+        const AudioClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioClass) {
+          audioCtx = new AudioClass();
+        }
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function setInspectVolume(val) {
+      inspectVolume = parseFloat(val) / 100;
+    }
+
+    function enqueueRemoteAudio(dataUrl) {
+      if (!isListeningAudio || !dataUrl) return;
+      audioChunksQueue.push(dataUrl);
+      if (!isPlayingAudioChunk) {
+        playNextAudioChunk();
+      }
+    }
+
+    function playNextAudioChunk() {
+      if (!isListeningAudio || audioChunksQueue.length === 0) {
+        isPlayingAudioChunk = false;
+        return;
+      }
+      isPlayingAudioChunk = true;
+      const chunk = audioChunksQueue.shift();
+      const sound = new Audio(chunk);
+      sound.volume = Math.max(0, Math.min(1, inspectVolume));
+      sound.onended = () => { playNextAudioChunk(); };
+      sound.onerror = () => { playNextAudioChunk(); };
+      sound.play().catch(() => { playNextAudioChunk(); });
+    }
+
+    function toggleInspectAudio() {
+      initPcAudio();
+      isListeningAudio = !isListeningAudio;
+
+      const btn = document.getElementById('inspect-audio-btn');
+      const icon = document.getElementById('inspect-audio-icon');
+      const text = document.getElementById('inspect-audio-text');
+
+      if (isListeningAudio) {
+        btn.className = 'px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition flex items-center gap-2 active:scale-95 shadow-lg shadow-emerald-600/30';
+        icon.className = 'fa-solid fa-volume-high text-white animate-bounce';
+        text.textContent = 'Audio en Vivo (Activo)';
+        showToast('Escuchando micrófono de la tablet');
+        if (audioChunksQueue.length > 0 && !isPlayingAudioChunk) {
+          playNextAudioChunk();
+        }
+      } else {
+        audioChunksQueue.length = 0;
+        btn.className = 'px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-cyan-950 text-slate-300 hover:text-cyan-300 border border-slate-700 hover:border-cyan-600 text-xs font-bold transition flex items-center gap-2 active:scale-95';
+        icon.className = 'fa-solid fa-volume-xmark text-rose-400';
+        text.textContent = 'Escuchar Micrófono';
+        showToast('Audio silenciado');
+      }
+    }
+
+    /* ============================================================
+       5. MODAL DE INSPECCIÓN AMPLIADA Y AUDIO
+       ============================================================ */
+    function inspectTabletScreen(id) {
+      initPcAudio();
+      currentInspectId = parseInt(id, 10);
+      const tab = tablets.find(t => t.id == currentInspectId);
+      if (!tab) return;
+
+      document.getElementById('inspect-tablet-name').textContent = tab.name;
+      document.getElementById('inspect-tablet-email').textContent = tab.email;
+      document.getElementById('inspect-hud-info').textContent = `Cámara: ${tab.facingMode === 'user' ? 'Frontal' : 'Trasera'} • Micrófono Conectado`;
+
+      const inspectCanvas = document.getElementById('inspect-canvas-player');
+      const noVideoMsg = document.getElementById('inspect-no-video');
+
+      if (remoteCamFrames[currentInspectId]) {
+        drawFrameToCanvas('inspect-canvas-player', 'inspect-no-video', remoteCamFrames[currentInspectId]);
+      } else {
+        inspectCanvas.classList.add('hidden');
+        noVideoMsg.classList.remove('hidden');
+      }
+
+      const lockBtn = document.getElementById('inspect-lock-btn');
+      if (lockBtn) {
+        lockBtn.innerHTML = tab.status === 'locked' 
+          ? '<i class="fa-solid fa-lock-open mr-1"></i> Desbloquear' 
+          : '<i class="fa-solid fa-lock mr-1"></i> Bloquear';
+      }
+
+      // Activar audio automáticamente al ampliar para mayor comodidad
+      if (!isListeningAudio) {
+        toggleInspectAudio();
+      }
+
+      document.getElementById('modal-screen-inspect').classList.remove('hidden');
+    }
+
+    function closeInspectModal() {
+      if (isListeningAudio) {
+        toggleInspectAudio();
+      }
+      currentInspectId = null;
+      closeModal('modal-screen-inspect');
+    }
+
+    function remoteSwitchCameraModal() {
+      if (!currentInspectId) return;
+      const tab = tablets.find(t => t.id == currentInspectId);
+      if (!tab) return;
+      const nextFacing = (tab.facingMode === 'user') ? 'environment' : 'user';
+      remoteSwitchCamera(currentInspectId, nextFacing);
+      document.getElementById('inspect-hud-info').textContent = `Cámara: ${nextFacing === 'user' ? 'Frontal' : 'Trasera'} • Micrófono Conectado`;
     }
 
     function updateStatistics() {
@@ -1179,7 +1556,8 @@
 
     function disconnectTablet(id) {
       tablets = tablets.filter(t => t.id !== id);
-      delete remoteCanvasFrames[id];
+      delete remoteCamFrames[id];
+      delete remoteAudioLevels[id];
       showToast(`Tablet retirada`);
       renderTablets();
     }
@@ -1187,36 +1565,6 @@
     /* ============================================================
        5. MODALES Y CONFIGURACIONES
        ============================================================ */
-    function inspectTabletScreen(id) {
-      currentInspectId = id;
-      const tab = tablets.find(t => t.id === id);
-      if (!tab) return;
-
-      document.getElementById('inspect-tablet-name').textContent = tab.name;
-      document.getElementById('inspect-tablet-email').textContent = tab.email;
-
-      const inspectImg = document.getElementById('inspect-img-player');
-      const noVideoMsg = document.getElementById('inspect-no-video');
-
-      if (remoteCanvasFrames[id]) {
-        inspectImg.src = remoteCanvasFrames[id];
-        inspectImg.classList.remove('hidden');
-        noVideoMsg.classList.add('hidden');
-      } else {
-        inspectImg.classList.add('hidden');
-        noVideoMsg.classList.remove('hidden');
-      }
-
-      const lockBtn = document.getElementById('inspect-lock-btn');
-      if (lockBtn) {
-        lockBtn.innerHTML = tab.status === 'locked' 
-          ? '<i class="fa-solid fa-lock-open mr-1"></i> Desbloquear' 
-          : '<i class="fa-solid fa-lock mr-1"></i> Bloquear';
-      }
-
-      document.getElementById('modal-screen-inspect').classList.remove('hidden');
-    }
-
     function quickLockInspectTablet() {
       if (!currentInspectId) return;
       toggleSingleLock(currentInspectId);
@@ -1235,6 +1583,10 @@
       document.getElementById('rename-target-id').value = id;
       document.getElementById('rename-input').value = tab.name;
       document.getElementById('modal-rename-tablet').classList.remove('hidden');
+    }
+
+    function openInstructionsModal() {
+      document.getElementById('modal-instructions').classList.remove('hidden');
     }
 
     function saveTabletRename() {
@@ -1366,25 +1718,32 @@
       }, 3000);
     }
 
-    // Temporizador regresivo por segundo
+    // Temporizador regresivo por segundo (actualiza el texto sin recrear el DOM ni parpadear)
     setInterval(() => {
-      let changed = false;
+      let needsFullRender = false;
       tablets.forEach(tab => {
         if (tab.status === 'active') {
           if (tab.remainingSeconds > 0 && tab.remainingSeconds < 99999) {
             tab.remainingSeconds--;
-            changed = true;
+            // Actualizar directamente el texto del reloj de esa tablet sin destruir el elemento
+            const timerEl = document.getElementById(`card-timer-${tab.id}`);
+            if (timerEl) {
+              timerEl.textContent = formatTime(tab.remainingSeconds);
+              if (tab.remainingSeconds <= 300) {
+                timerEl.className = 'font-mono-tech font-bold text-xs text-rose-400 animate-pulse';
+              }
+            }
           } else if (tab.remainingSeconds === 0) {
             tab.status = 'locked';
-            changed = true;
+            needsFullRender = true;
           }
         }
       });
 
-      if (changed) {
+      if (needsFullRender) {
         renderTablets();
-        updateTabletClientUI();
       }
+      updateTabletClientUI();
     }, 1000);
 
     /* ============================================================
