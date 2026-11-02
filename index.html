@@ -31,7 +31,7 @@
       border-radius: 0.75rem;
     }
     .cam-feed-container video,
-    .cam-feed-container img {
+    .cam-feed-container canvas {
       width: 100%;
       height: 100%;
       object-fit: cover;
@@ -80,7 +80,7 @@
     <div class="flex items-center gap-2 flex-wrap" id="header-pc-actions">
       <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs font-mono-tech">
         <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-        <span class="text-slate-400">PIN:</span>
+        <span class="text-slate-400">SALA:</span>
         <strong id="session-pin-code" class="text-cyan-400 tracking-wider">AULA77</strong>
       </div>
 
@@ -386,9 +386,9 @@
       <div class="text-left bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-xs mb-3">
         <strong class="text-slate-200 block mb-1">Pasos en la Tablet física (Android / iOS):</strong>
         <ol class="list-decimal pl-4 space-y-1 text-slate-400 text-[11px]">
-          <li>Abre la cámara o el navegador Chrome/Safari.</li>
-          <li>Escanea el código QR o ingresa la URL de abajo.</li>
-          <li>Pulsa "Transmitir Pantalla" o "Transmitir Cámara" y se reflejará aquí al instante.</li>
+          <li>Abre la cámara de fotos o el navegador Chrome/Safari.</li>
+          <li>Escanea el código QR o copia el enlace de abajo.</li>
+          <li>Presiona <strong class="text-emerald-400">"PERMITIR"</strong> para la cámara y el micrófono.</li>
         </ol>
       </div>
 
@@ -600,8 +600,6 @@
     // Web Audio API para transmisión y monitoreo de audio
     let audioCtx = null;
     let micAnalyser = null;
-    let micGainNode = null;
-    let pcAudioSynth = null;
     let audioRecorder = null;
     let inspectVolume = 0.9;
     const audioChunksQueue = [];
@@ -616,6 +614,12 @@
           try { handleIncomingMessage(JSON.parse(e.newValue)); } catch (err) {}
         }
       });
+
+      if (syncChannel) {
+        syncChannel.onmessage = (event) => {
+          if (event.data) handleIncomingMessage(event.data);
+        };
+      }
 
       try {
         if (typeof Paho !== 'undefined' && Paho.MQTT) {
@@ -765,6 +769,11 @@
           globalFlashMessage = '';
           updateTabletClientUI();
         }, 15000);
+      } else if (msg.type === 'LAUNCH_URL') {
+        const { url, targetIds } = msg.payload;
+        if (currentRole === 'tablet' && (!targetIds || targetIds.includes(clientTabletId))) {
+          window.open(url, '_blank');
+        }
       } else if (msg.type === 'RENAME_TABLET') {
         const { id, name } = msg.payload;
         const tab = tablets.find(t => t.id === id);
@@ -821,7 +830,7 @@
     }
 
     /* ============================================================
-       3. MODO TABLET (CÁMARA FRONTAL Y TRASERA + AUDIO getUserMedia)
+       3. MODO TABLET (CÁMARA FRONTAL Y TRASERA + AUDIO)
        ============================================================ */
     async function initTabletCameraMode() {
       const nameEl = document.getElementById('tab-client-name');
@@ -863,7 +872,6 @@
       updateTabletFacingUI();
 
       try {
-
         const constraints = {
           video: {
             facingMode: { ideal: facing },
@@ -900,7 +908,6 @@
       }
     }
 
-    // Transmisión de fragmentos de audio reales desde el micrófono de la tablet
     function setupAudioChunkStreaming(stream) {
       if (!stream.getAudioTracks().length) return;
       try {
@@ -931,7 +938,6 @@
       }
     }
 
-    // Configurar analizador de volumen del micrófono en la tablet
     function setupLocalAudioAnalysis(stream) {
       try {
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -1002,7 +1008,6 @@
         offCtx.drawImage(videoEl, 0, 0, offCanvas.width, offCanvas.height);
         const dataUrl = offCanvas.toDataURL('image/jpeg', 0.5);
 
-        // Nivel de volumen capturado
         const currentAudioLevel = getLocalAudioVolume();
 
         broadcastMessage({
@@ -1085,7 +1090,6 @@
         ctx.fillStyle = '#0f172a';
         ctx.fillRect(0, 0, c.width, c.height);
 
-        // Rostro simulado o entorno
         const t = Date.now() * 0.003;
         ctx.strokeStyle = '#38bdf8';
         ctx.lineWidth = 3;
@@ -1188,7 +1192,6 @@
               <div class="absolute bottom-1.5 left-1.5 px-2 py-0.5 rounded bg-black/75 text-[9px] font-mono-tech text-cyan-300 border border-cyan-800 flex items-center gap-1 pointer-events-none">
                 <i class="fa-solid ${isUser ? 'fa-user' : 'fa-mountain-sun'}"></i> ${isUser ? 'FRONTAL' : 'TRASERA'}
               </div>
-              <!-- Indicador de audio en la tarjeta -->
               <div class="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded bg-black/75 text-[9px] font-mono-tech text-emerald-400 border border-emerald-800 flex items-center gap-1 pointer-events-none">
                 <i class="fa-solid fa-microphone text-[8px]"></i>
                 <span id="card-audio-level-${tab.id}">0%</span>
@@ -1235,7 +1238,6 @@
           `;
           grid.appendChild(card);
 
-          // Si ya teníamos fotograma guardado, dibujarlo de inmediato
           if (remoteCamFrames[tab.id]) {
             drawFrameToCanvas(`cam-canvas-${tab.id}`, `screen-placeholder-${tab.id}`, remoteCamFrames[tab.id]);
           }
@@ -1259,7 +1261,6 @@
       }
     }
 
-    // Dibujado directo en Canvas: sin destellos ni recargas de imagen
     function drawFrameToCanvas(canvasId, placeholderId, dataUrl) {
       const cvs = document.getElementById(canvasId);
       const ph = placeholderId ? document.getElementById(placeholderId) : null;
@@ -1288,11 +1289,9 @@
         cardAudio.className = audioLvl > 25 ? 'text-emerald-400 font-bold' : 'text-slate-400';
       }
 
-      // Si la tablet inspeccionada en pantalla completa es esta:
       if (currentInspectId && currentInspectId == tabletId && frameData) {
         drawFrameToCanvas('inspect-canvas-player', 'inspect-no-video', frameData);
 
-        // Actualizar barra VU Meter del modal
         const vuBar = document.getElementById('inspect-vu-bar');
         const vuDb = document.getElementById('inspect-vu-db');
         if (vuBar && vuDb) {
@@ -1398,7 +1397,6 @@
           : '<i class="fa-solid fa-lock mr-1"></i> Bloquear';
       }
 
-      // Activar audio automáticamente al ampliar para mayor comodidad
       if (!isListeningAudio) {
         toggleInspectAudio();
       }
@@ -1563,7 +1561,7 @@
     }
 
     /* ============================================================
-       5. MODALES Y CONFIGURACIONES
+       6. MODALES Y ACCIONES
        ============================================================ */
     function quickLockInspectTablet() {
       if (!currentInspectId) return;
@@ -1718,14 +1716,13 @@
       }, 3000);
     }
 
-    // Temporizador regresivo por segundo (actualiza el texto sin recrear el DOM ni parpadear)
+    // Temporizador regresivo por segundo (sin recrear el DOM ni parpadear)
     setInterval(() => {
       let needsFullRender = false;
       tablets.forEach(tab => {
         if (tab.status === 'active') {
           if (tab.remainingSeconds > 0 && tab.remainingSeconds < 99999) {
             tab.remainingSeconds--;
-            // Actualizar directamente el texto del reloj de esa tablet sin destruir el elemento
             const timerEl = document.getElementById(`card-timer-${tab.id}`);
             if (timerEl) {
               timerEl.textContent = formatTime(tab.remainingSeconds);
@@ -1747,12 +1744,11 @@
     }, 1000);
 
     /* ============================================================
-       6. CARGA INICIAL
+       7. CARGA INICIAL
        ============================================================ */
     window.onload = function () {
       initMessagingNetwork();
       checkInitialRole();
-      // Agregar 1 tablet demo para probar de inmediato en PC
       addSimulatedTablet();
     };
   </script>
